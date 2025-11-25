@@ -4,12 +4,11 @@ use Mojo::Base 'Mojolicious::Controller';
 use Redis;
 use Encode;
 use File::Temp qw(tempdir tmpnam);
-use File::Copy;
 use File::Find;
 use File::Basename;
 
 use LANraragi::Utils::Generic qw(generate_themes_header is_archive get_bytelength);
-use LANraragi::Utils::Path    qw(rename_path);
+use LANraragi::Utils::Path    qw(move_path);
 
 use feature qw(say);
 
@@ -45,7 +44,7 @@ sub process_upload {
         my $mojo_temp = tmpnam(); # Create another temp file as a target for Mojo's move_to so that the original handle can be closed
         $file->move_to($mojo_temp) or die "Couldn't move uploaded file.";
 
-        rename_path( $mojo_temp, $tempfile ) or die "Couldn't move uploaded file."; # Move the file for real this time
+        move_path( $mojo_temp, $tempfile ) or die "Couldn't move uploaded file."; # Move the file for real this time
 
         # Send a job to Minion to handle the uploaded file.
         my $jobid = $self->minion->enqueue( handle_upload => [ $tempfile, $catid ] => { priority => 2 } );

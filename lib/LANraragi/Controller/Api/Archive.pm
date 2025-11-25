@@ -10,13 +10,12 @@ use Scalar::Util qw(looks_like_number);
 
 use File::Temp qw(tempdir);
 use File::Basename;
-use File::Find;
 
 use LANraragi::Utils::Generic  qw(render_api_response is_archive get_bytelength exec_with_lock);
 use LANraragi::Utils::Database qw(get_archive_json set_isnew);
 use LANraragi::Utils::Logging  qw(get_logger);
 use LANraragi::Utils::Redis    qw(redis_encode);
-use LANraragi::Utils::Path     qw(compat_path get_archive_path);
+use LANraragi::Utils::Path     qw(compat_path get_archive_path move_path);
 
 use LANraragi::Model::Archive;
 use LANraragi::Model::Category;
@@ -155,9 +154,8 @@ sub create_archive {
         }
     }
 
-    my $filename   = $upload->filename;
+    my $filename   = encode_utf8( $upload->filename );
     my $uploadMime = $upload->headers->content_type;
-    $filename = redis_encode($filename);
 
     return unless exec_with_lock( $self, $redis, "upload:$filename", "upload", $filename, sub {
 
@@ -192,7 +190,9 @@ sub create_archive {
         $filename = $filename . $ext;
 
         my $tempfile = $tempdir . '/' . $filename;
-        if ( !$upload->move_to($tempfile) ) {
+
+        my $mojo_temp = tmpnam(); # Create another temp file as a target for Mojo's move_to so that the original handle can be closed
+        if ( !$upload->move_to($mojo_temp) ) {
             $logger->error("Could not move uploaded file $filename to $tempfile");
             return $self->render(
                 json => {
@@ -204,16 +204,17 @@ sub create_archive {
             );
         }
 
-        # Update $tempfile to the exact reference created by the host filesystem
-        # This is done by finding the first (and only) file in $tempdir.
-        find(
-            sub {
-                return if -d $_;
-                $tempfile = $File::Find::name;
-                $filename = $_;
-            },
-            $tempdir
-        );
+        if ( !move_path( $mojo_temp, $tempfile ) ) { # Move the file for real this time
+            $logger->error("Could not move uploaded file $filename to $tempfile");
+            return $self->render(
+                json => {
+                    operation => "upload",
+                    success   => 0,
+                    error     => "Couldn't move uploaded file to temporary location."
+                },
+                status => 500
+            );
+        }
 
         my ( $status_code, $id, $response_title, $message ) =
           LANraragi::Model::Upload::handle_incoming_file( $tempfile, $catid, $tags, $title, $summary );

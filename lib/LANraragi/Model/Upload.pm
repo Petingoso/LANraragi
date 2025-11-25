@@ -14,10 +14,10 @@ use File::Find qw(find);
 use LANraragi::Utils::Archive  qw(extract_thumbnail);
 use LANraragi::Utils::Database qw(invalidate_cache compute_id set_title set_summary add_archive_to_redis add_timestamp_tag add_pagecount add_arcsize);
 use LANraragi::Utils::Logging  qw(get_logger);
-use LANraragi::Utils::Redis    qw(redis_encode);
+use LANraragi::Utils::Redis    qw(redis_encode redis_decode);
 use LANraragi::Utils::Generic  qw(is_archive get_bytelength);
 use LANraragi::Utils::String   qw(trim trim_CRLF trim_url);
-use LANraragi::Utils::Path     qw(create_path get_archive_path rename_path);
+use LANraragi::Utils::Path     qw(create_path get_archive_path rename_path move_path unlink_path);
 
 use LANraragi::Model::Config   qw(get_userdir);
 use LANraragi::Model::Plugins;
@@ -65,7 +65,7 @@ sub handle_incoming_file ( $tempfile, $catid, $tags, $title, $summary ) {
     if ( ( -e $output_file || $isdupe ) && !$replace_dupe ) {
 
         # Trash temporary file
-        unlink $tempfile;
+        unlink_path $tempfile;
 
         # The file already exists
         my $suffix = " Enable replace duplicated archive in config to replace old ones.";
@@ -85,7 +85,7 @@ sub handle_incoming_file ( $tempfile, $catid, $tags, $title, $summary ) {
 
     # Add the file to the database ourselves so Shinobu doesn't do it
     # This allows autoplugin to be ran ASAP.
-    my $name = add_archive_to_redis( $id, $output_file, $redis, $redis_search );
+    my $name = add_archive_to_redis( $id, redis_encode( redis_decode( $output_file ) ), $redis, $redis_search );
 
     # If additional tags were given to the sub, add them now.
     if ($tags) {
@@ -124,7 +124,7 @@ sub handle_incoming_file ( $tempfile, $catid, $tags, $title, $summary ) {
 
     # Move the file to the content folder.
     # Move to a .upload first in case copy to the content folder takes a while...
-    rename_path( $tempfile, $output_file . ".upload" )
+    move_path( $tempfile, $output_file . ".upload" )
       or return ( 500, $id, $name, "The file couldn't be moved to your content folder: $!" );
 
     # Then rename inside the content folder itself to proc Shinobu's filemap update.

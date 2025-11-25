@@ -9,11 +9,12 @@ no warnings 'experimental::signatures';
 use Encode;
 use Config;
 use File::Find;
+use File::Copy qw(move);
 
 use constant IS_UNIX => ( $Config{osname} ne 'MSWin32' );
 
 use Exporter 'import';
-our @EXPORT_OK = qw(create_path open_path date_modified compat_path unlink_path find_path get_archive_path rename_path);
+our @EXPORT_OK = qw(create_path open_path date_modified compat_path unlink_path find_path get_archive_path rename_path move_path);
 
 BEGIN {
     if ( !IS_UNIX ) {
@@ -70,6 +71,15 @@ sub rename_path ( $old_file, $new_file ) {
         return CORE::rename $old_file, $new_file;
     } else {
         return Win32::LongPath::renameL( decode_utf8( $old_file ), decode_utf8( $new_file ) );
+    }
+}
+
+sub move_path ( $old_file, $new_file ) {
+    if ( IS_UNIX ) {
+        return move( $old_file, $new_file );
+    } else {
+        return unless Win32::LongPath::copyL( decode_utf8( $old_file ), decode_utf8( $new_file ) );
+        return Win32::LongPath::unlinkL( decode_utf8( $old_file ) );
     }
 }
 

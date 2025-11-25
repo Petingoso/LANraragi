@@ -299,6 +299,10 @@ sub add_tasks {
 
             my $logger = get_logger( "Minion", "minion" );
 
+            if ( IS_UNIX ) {
+                $file = decode_utf8( $file );
+            }
+
             $logger->info("Processing uploaded file $file...");
 
             # Since we already have a file, this goes straight to handle_incoming_file.
