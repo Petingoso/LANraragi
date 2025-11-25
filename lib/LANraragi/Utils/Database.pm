@@ -22,7 +22,7 @@ use LANraragi::Utils::String  qw(trim trim_CRLF trim_url);
 use LANraragi::Utils::Tags    qw(unflat_tagrules tags_rules_to_array restore_CRLF join_tags_to_string split_tags_to_array );
 use LANraragi::Utils::Archive qw(get_filelist);
 use LANraragi::Utils::Logging qw(get_logger);
-use LANraragi::Utils::Path    qw(create_path open_path date_modified);
+use LANraragi::Utils::Path    qw(create_path open_path date_modified get_archive_path);
 
 use LANraragi::Model::Config;
 
@@ -84,7 +84,7 @@ sub change_archive_id ( $old_id, $new_id ) {
     }
 
     # Update archive size
-    my $file = create_path( $redis->hget( $new_id, "file" ) );
+    my $file = get_archive_path( $redis, $new_id );
     $redis->hset( $new_id, "arcsize", -s $file );
     $redis->quit;
 
@@ -123,7 +123,7 @@ sub add_timestamp_tag ( $redis, $id ) {
 
         if ( LANraragi::Model::Config->use_lastmodified eq "1" ) {
             $logger->debug("Using file date");
-            $date = date_modified( $redis->hget( $id, "file" ) );
+            $date = date_modified( get_archive_path( $redis, $id ) );
         } else {
             $logger->debug("Using current date");
             $date = time();
@@ -138,7 +138,7 @@ sub add_pagecount ( $redis, $id ) {
 
     my $logger = get_logger( "Archive", "lanraragi" );
 
-    my $file   = $redis->hget( $id, "file" );
+    my $file   = get_archive_path( $redis, $id );
     my @images = get_filelist($file, $id);
     $redis->hset( $id, "pagecount", scalar @images );
 }
@@ -360,7 +360,7 @@ sub clean_database {
         }
 
         # Check if the linked file exists
-        my $file = create_path( $redis->hget( $id, "file" ) );
+        my $file = get_archive_path( $redis, $id );
         unless ( -e $file ) {
             LANraragi::Model::Archive::delete_archive($id);
             $deleted_arcs++;
@@ -610,7 +610,7 @@ sub get_computed_tagrules {
 }
 
 sub add_arcsize ( $redis, $id ) {
-    my $file = create_path( $redis->hget( $id, "file" ) );
+    my $file = get_archive_path( $redis, $id );
     $redis->hset( $id, "arcsize", -s $file );
 }
 

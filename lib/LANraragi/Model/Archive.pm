@@ -19,11 +19,10 @@ use LANraragi::Utils::String     qw(trim trim_CRLF);
 use LANraragi::Utils::TempFolder qw(get_temp);
 use LANraragi::Utils::Logging    qw(get_logger);
 use LANraragi::Utils::Archive    qw(extract_single_file extract_single_file extract_thumbnail);
-use LANraragi::Utils::Database
-  qw(invalidate_cache set_title set_tags set_summary get_archive_json get_archive_json_multi);
+use LANraragi::Utils::Database   qw(invalidate_cache set_title set_tags set_summary get_archive_json get_archive_json_multi);
 use LANraragi::Utils::PageCache  qw(fetch put);
 use LANraragi::Utils::Redis      qw(redis_decode redis_encode);
-use LANraragi::Utils::Path       qw(create_path unlink_path);
+use LANraragi::Utils::Path       qw(unlink_path get_archive_path);
 
 # get_title(id)
 #   Returns the title for the archive matching the given id.
@@ -238,7 +237,7 @@ sub get_page_data ($id, $path) {
     if ( !defined($content) ) {
         # Extract the file from the parent archive if it doesn't exist
         my $redis = LANraragi::Model::Config->get_redis;
-        my $archive = $redis->hget($id, "file");
+        my $archive = get_archive_path( $redis, $id );
         $redis->quit();
         $content = extract_single_file($archive, $path);
         put($cachekey, $content);
@@ -322,7 +321,7 @@ sub update_metadata {
 sub delete_archive ($id) {
 
     my $redis    = LANraragi::Model::Config->get_redis;
-    my $filename = create_path( $redis->hget( $id, "file" ) );
+    my $filename = get_archive_path( $redis, $id );
     my $oldtags  = $redis->hget( $id, "tags" );
     $oldtags = redis_decode($oldtags);
 
