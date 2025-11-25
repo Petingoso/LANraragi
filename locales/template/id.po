@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-05-26 06:02+0200\n"
-"PO-Revision-Date: 2025-09-24 00:02+0000\n"
+"PO-Revision-Date: 2025-11-24 04:51+0000\n"
 "Last-Translator: Slasar41 <agungtrianto41@outlook.com>\n"
 "Language-Team: Indonesian <https://hosted.weblate.org/projects/lanraragi/"
 "lanraragi-source/id/>\n"
@@ -12,7 +12,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.14-dev\n"
+"X-Generator: Weblate 5.15-dev\n"
 
 # Sample Data
 # ------Start of Backup.html.tt2------
@@ -1875,3 +1875,17 @@ msgstr "Harap atur jeda halaman berikutnya otomatis ke angka positif."
 
 msgid "The maximum value allowed is 4GB."
 msgstr "Nilai maksimum yang diizinkan adalah 4GB."
+
+msgid "Authenticated Progress Tracking"
+msgstr "Pelacakan Kemajuan Terautentikasi"
+
+msgid "If enabled, server-side progress will only be saved if you're logged in with a password, and will override clientside progress. This allows guests to browse without affecting the main user's progress."
+msgstr ""
+"Jika diaktifkan, kemajuan sisi peladen hanya akan disimpan jika Anda masuk "
+"dengan kata sandi, dan akan menimpa kemajuan sisi klien. Ini memungkinkan "
+"tamu untuk menjelajah tanpa memengaruhi kemajuan pengguna utama."
+
+msgid "Combine with clientside progress tracking to allow unauthenticated users to track progress locally."
+msgstr ""
+"Gabungkan dengan pelacakan kemajuan sisi klien untuk memungkinkan pengguna "
+"yang tidak terautentikasi melacak kemajuan secara lokal."
