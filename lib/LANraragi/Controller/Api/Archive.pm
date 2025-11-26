@@ -8,7 +8,7 @@ use Storable;
 use Mojo::JSON   qw(decode_json);
 use Scalar::Util qw(looks_like_number);
 
-use File::Temp qw(tempdir);
+use File::Temp qw(tempdir tmpnam);
 use File::Basename;
 
 use LANraragi::Utils::Generic  qw(render_api_response is_archive get_bytelength exec_with_lock);
