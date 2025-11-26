@@ -193,7 +193,7 @@ sub create_archive {
 
         my $mojo_temp = tmpnam(); # Create another temp file as a target for Mojo's move_to so that the original handle can be closed
         if ( !$upload->move_to($mojo_temp) ) {
-            $logger->error("Could not move uploaded file $filename to $tempfile");
+            $logger->error("Could not move uploaded file $filename to $mojo_temp");
             return $self->render(
                 json => {
                     operation => "upload",
@@ -205,7 +205,7 @@ sub create_archive {
         }
 
         if ( !move_path( $mojo_temp, $tempfile ) ) { # Move the file for real this time
-            $logger->error("Could not move uploaded file $filename to $tempfile");
+            $logger->error("Could not move uploaded file $mojo_temp to $tempfile");
             return $self->render(
                 json => {
                     operation => "upload",
