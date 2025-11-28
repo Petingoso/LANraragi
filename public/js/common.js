@@ -301,7 +301,7 @@ LRR.buildThumbnailDiv = function (data, tagTooltip = true) {
     // Don't enforce no_fallback=true here, we don't want those divs to trigger Minion jobs
     return `<div class="id1 context-menu swiper-slide" id="${id}">
                 <div class="id2">
-                    ${LRR.buildProgressDiv(data)}
+                    ${LRR.buildStatusDiv(data)}
                     <a href="${reader_url}" title="${LRR.encodeHTML(data.title)}">${LRR.encodeHTML(data.title)}</a>
                 </div>
                 <div class="${thumbCss}">
@@ -315,6 +315,7 @@ LRR.buildThumbnailDiv = function (data, tagTooltip = true) {
                     ${bookmarkIcon}
                 </div>
                 <div class="id4">
+                        ${LRR.buildPageCountDiv(data)}
                         <span class="tags tag-tooltip" ${tagTooltip === true ? "onmouseover=\"IndexTable.buildTagTooltip(this)\"" : ""}>${LRR.colorCodeTags(data.tags)}</span>
                         ${tagTooltip === true ? `<div class="caption caption-tags" style="display: none;" >${LRR.buildTagsDiv(data.tags)}</div>` : ""}
                 </div>
@@ -322,13 +323,41 @@ LRR.buildThumbnailDiv = function (data, tagTooltip = true) {
 };
 
 /**
- * Show an emoji or a progress number for the given archive data.
+ * Show an emoji for the given archive data.
  * @param {*} arcdata The archive data object
  * @returns HTML string
  */
-LRR.buildProgressDiv = function (arcdata) {
-    const id = arcdata.arcid;
+LRR.buildStatusDiv = function (arcdata) {
     const { isnew } = arcdata;
+    let { progress, pagecount } = LRR.getProgress(arcdata);
+
+    if (isnew === "true") {
+        return "<div class='isnew'>🆕</div>";
+    } else if (pagecount > 0 && (progress / pagecount) > 0.85) { // Consider an archive read if progress is past 85% of total
+        return "<div class='isnew'>👑</div>";
+    }
+    // If there wasn't sufficient data, return an empty string
+    return "";
+};
+
+LRR.buildPageCountDiv = function (arcdata) {
+
+    // TODO - This might evolve with Tanks to show the amount of IDs in the tank with total pagecount on hover
+    let { progress, pagecount } = LRR.getProgress(arcdata);
+    if (pagecount > 0) {
+        return `<div class='isnew'><sup>${progress}/${pagecount}</sup></div>`;
+    }
+    return "";
+};
+
+/**
+ * Get the progress and pagecount for the given archive data, considering localStorage if needed.
+ * @param {*} arcdata The archive data object
+ * @returns progress and pagecount
+ */
+LRR.getProgress = function (arcdata) {
+    const id = arcdata.arcid;
+
     const pagecount = parseInt(arcdata.pagecount || 0, 10);
     let progress = -1;
 
@@ -338,16 +367,8 @@ LRR.buildProgressDiv = function (arcdata) {
         progress = parseInt(arcdata.progress || 0, 10);
     }
 
-    if (isnew === "true") {
-        return "<div class=\"isnew\">🆕</div>";
-    } else if (pagecount > 0) {
-        // Consider an archive read if progress is past 85% of total
-        if ((progress / pagecount) > 0.85) return "<div class='isnew'>👑</div>";
-        else return `<div class='isnew'><sup>${progress}/${pagecount}</sup></div>`;
-    }
-    // If there wasn't sufficient data, return an empty string
-    return "";
-};
+    return { progress, pagecount };
+}
 
 /**
  * Show a generic error toast with a given header and message.
