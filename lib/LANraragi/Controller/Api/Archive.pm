@@ -216,6 +216,8 @@ sub create_archive {
             );
         }
 
+        $tempfile = decode_utf8( $tempfile );
+
         my ( $status_code, $id, $response_title, $message ) =
           LANraragi::Model::Upload::handle_incoming_file( $tempfile, $catid, $tags, $title, $summary );
 

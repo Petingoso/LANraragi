@@ -6,6 +6,8 @@ use strict;
 use warnings;
 
 use Redis;
+use Config;
+use Encode;
 use URI::Escape;
 use File::Basename;
 use File::Temp qw(tempdir);
@@ -23,6 +25,8 @@ use LANraragi::Model::Config   qw(get_userdir);
 use LANraragi::Model::Plugins;
 use LANraragi::Model::Category;
 use LANraragi::Model::Archive;
+
+use constant IS_UNIX => ( $Config{osname} ne 'MSWin32' );
 
 # Handle files uploaded by the user, or downloaded from remote endpoints.
 
@@ -85,7 +89,7 @@ sub handle_incoming_file ( $tempfile, $catid, $tags, $title, $summary ) {
 
     # Add the file to the database ourselves so Shinobu doesn't do it
     # This allows autoplugin to be ran ASAP.
-    my $name = add_archive_to_redis( $id, redis_encode( redis_decode( $output_file ) ), $redis, $redis_search );
+    my $name = add_archive_to_redis( $id, (IS_UNIX ? encode_utf8( $output_file ) : $output_file), $redis, $redis_search );
 
     # If additional tags were given to the sub, add them now.
     if ($tags) {
