@@ -10,8 +10,6 @@ use File::Basename;
 use LANraragi::Utils::Generic qw(generate_themes_header is_archive get_bytelength);
 use LANraragi::Utils::Path    qw(move_path);
 
-use feature qw(say);
-
 sub process_upload {
     my $self = shift;
 
