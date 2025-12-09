@@ -193,7 +193,10 @@ sub create_archive {
 
         my $tempfile = $tempdir . '/' . $filename;
 
-        my $mojo_temp = tmpnam(); # Create another temp file as a target for Mojo's move_to so that the original handle can be closed
+        # On Windows Mojo will hold an open handle to the upload file preventing us from using the long-path compatible
+        # methods to move it.
+        # Workaround it by using another temp file as a target for Mojo's move_to so that the original handle can be closed.
+        my $mojo_temp = tmpnam();
         if ( !$upload->move_to($mojo_temp) ) {
             $logger->error("Could not move uploaded file $filename to $mojo_temp");
             return $self->render(

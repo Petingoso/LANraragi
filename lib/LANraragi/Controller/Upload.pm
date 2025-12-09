@@ -39,7 +39,10 @@ sub process_upload {
 
         my $tempfile = $tempdir . '/' . $filename;
 
-        my $mojo_temp = tmpnam(); # Create another temp file as a target for Mojo's move_to so that the original handle can be closed
+        # On Windows Mojo will hold an open handle to the upload file preventing us from using the long-path compatible
+        # methods to move it.
+        # Workaround it by using another temp file as a target for Mojo's move_to so that the original handle can be closed.
+        my $mojo_temp = tmpnam();
         $file->move_to($mojo_temp) or die "Couldn't move uploaded file.";
 
         move_path( $mojo_temp, $tempfile ) or die "Couldn't move uploaded file."; # Move the file for real this time
