@@ -16,7 +16,7 @@ use File::Find qw(find);
 use LANraragi::Utils::Archive  qw(extract_thumbnail);
 use LANraragi::Utils::Database qw(invalidate_cache compute_id set_title set_summary add_archive_to_redis add_timestamp_tag add_pagecount add_arcsize);
 use LANraragi::Utils::Logging  qw(get_logger);
-use LANraragi::Utils::Redis    qw(redis_encode redis_decode);
+use LANraragi::Utils::Redis    qw(redis_encode);
 use LANraragi::Utils::Generic  qw(is_archive get_bytelength);
 use LANraragi::Utils::String   qw(trim trim_CRLF trim_url);
 use LANraragi::Utils::Path     qw(create_path get_archive_path rename_path move_path unlink_path);

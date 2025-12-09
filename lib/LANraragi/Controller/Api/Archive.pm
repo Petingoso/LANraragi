@@ -3,9 +3,9 @@ use Mojo::Base 'Mojolicious::Controller';
 
 use Digest::SHA qw(sha1_hex);
 use Redis;
+use Config;
 use Encode;
 use Storable;
-use Mojo::JSON   qw(decode_json);
 use Scalar::Util qw(looks_like_number);
 
 use File::Temp qw(tempdir tmpnam);
@@ -21,6 +21,8 @@ use LANraragi::Model::Archive;
 use LANraragi::Model::Category;
 use LANraragi::Model::Config;
 use LANraragi::Model::Reader;
+
+use constant IS_UNIX => ( $Config{osname} ne 'MSWin32' );
 
 # Archive API.
 
@@ -216,7 +218,9 @@ sub create_archive {
             );
         }
 
-        $tempfile = decode_utf8( $tempfile );
+        if ( IS_UNIX ) {
+            $tempfile = decode_utf8( $tempfile );
+        }
 
         my ( $status_code, $id, $response_title, $message ) =
           LANraragi::Model::Upload::handle_incoming_file( $tempfile, $catid, $tags, $title, $summary );
