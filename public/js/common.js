@@ -109,7 +109,7 @@ LRR.isNullOrWhitespace = function (input) {
 LRR.getTagSearchURL = function (namespace, tag) {
     const namespacedTag = this.buildNamespacedTag(namespace, tag);
     if (namespace !== "source") {
-        return new LRR.apiURL(`/?q=${encodeURIComponent(namespacedTag)}`);
+        return new LRR.apiURL(`/?q=${encodeURIComponent(namespacedTag)}$`);
     } else if (/https?:\/\//.test(tag)) {
         return `${tag}`;
     } else {
@@ -223,6 +223,15 @@ LRR.splitTagsByNamespace = function (tags) {
     });
 
     return tagsByNamespace;
+};
+
+/**
+ * Converts tag dictionary into list of tags.
+ * @param {{ [namespace: string]: string[] }} tagsDict Per-namespace dictionary of arrays containing tags under each namespace.
+ * @returns List of tags prefixed with namespace.
+ */
+LRR.buildTagList = function(tagsDict) {
+    return Object.entries(tagsDict).flatMap(([namespace, tagArray]) => tagArray.map(tag => LRR.buildNamespacedTag(namespace, tag)));
 };
 
 /**
