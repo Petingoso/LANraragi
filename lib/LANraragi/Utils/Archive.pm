@@ -29,7 +29,7 @@ use LANraragi::Utils::TempFolder qw(get_temp);
 use LANraragi::Utils::Logging    qw(get_logger);
 use LANraragi::Utils::Generic    qw(is_image shasum_str);
 use LANraragi::Utils::Redis      qw(redis_decode redis_encode);
-use LANraragi::Utils::Path       qw(create_path);
+use LANraragi::Utils::Path       qw(get_archive_path);
 use LANraragi::Utils::Resizer    qw(get_resizer);
 
 # Utilitary functions for handling Archives.
@@ -104,7 +104,7 @@ sub extract_thumbnail ( $thumbdir, $id, $page, $set_cover, $use_hq ) {
     make_path("$thumbdir/$subfolder");
 
     my $redis = LANraragi::Model::Config->get_redis;
-    my $file  = $redis->hget( $id, "file" );
+    my $file  = get_archive_path( $redis, $id );
 
     # Get first image from archive using filelist
     my @filelist        = get_filelist($file, $id);
@@ -176,8 +176,6 @@ sub get_filelist ($archive, $arcid) {
         my $r = Archive::Libarchive::ArchiveRead->new;
         $r->support_filter_all;
         $r->support_format_all;
-
-        $archive = create_path( $archive );
 
         my $ret = $r->open_filename( $archive, 10240 );
         if ( $ret != ARCHIVE_OK ) {
@@ -298,7 +296,7 @@ sub is_file_in_archive ( $archive, $wantedname ) {
     $logger->debug("Iterating files of archive $archive, looking for '$wantedname'");
     $Data::Dumper::Useqq = 1;
 
-    my $peek = Archive::Libarchive::Peek->new( filename => create_path($archive) );
+    my $peek = Archive::Libarchive::Peek->new( filename => $archive );
     my $found;
     my @files = $peek->files;
 
@@ -366,7 +364,7 @@ sub extract_single_file ( $archive, $filepath ) {
     } else {
 
         my $contents = "";
-        my $peek     = Archive::Libarchive::Peek->new( filename => create_path($archive) );
+        my $peek     = Archive::Libarchive::Peek->new( filename => $archive );
 
         # This sub can receive either encoded or raw filenames, so we have to test for both.
         $contents = $peek->file($filepath) // $peek->file(redis_encode($filepath));

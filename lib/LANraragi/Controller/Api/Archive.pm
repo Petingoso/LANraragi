@@ -3,25 +3,26 @@ use Mojo::Base 'Mojolicious::Controller';
 
 use Digest::SHA qw(sha1_hex);
 use Redis;
+use Config;
 use Encode;
 use Storable;
-use Mojo::JSON   qw(decode_json);
 use Scalar::Util qw(looks_like_number);
 
-use File::Temp qw(tempdir);
+use File::Temp qw(tempdir tmpnam);
 use File::Basename;
-use File::Find;
 
 use LANraragi::Utils::Generic  qw(render_api_response is_archive get_bytelength exec_with_lock);
 use LANraragi::Utils::Database qw(get_archive_json set_isnew);
 use LANraragi::Utils::Logging  qw(get_logger);
 use LANraragi::Utils::Redis    qw(redis_encode);
-use LANraragi::Utils::Path     qw(compat_path);
+use LANraragi::Utils::Path     qw(compat_path get_archive_path move_path);
 
 use LANraragi::Model::Archive;
 use LANraragi::Model::Category;
 use LANraragi::Model::Config;
 use LANraragi::Model::Reader;
+
+use constant IS_UNIX => ( $Config{osname} ne 'MSWin32' );
 
 # Archive API.
 
@@ -110,7 +111,7 @@ sub serve_file {
     my $id    = check_id_parameter( $self, "serve_file" ) || return;
     my $redis = $self->LRR_CONF->get_redis;
 
-    my $file = $redis->hget( $id, "file" );
+    my $file = get_archive_path( $redis, $id );
     $redis->quit();
     $self->render_file( filepath => compat_path( $file ), filename => basename( $file ) );
 }
@@ -155,9 +156,8 @@ sub create_archive {
         }
     }
 
-    my $filename   = $upload->filename;
+    my $filename   = encode_utf8( $upload->filename );
     my $uploadMime = $upload->headers->content_type;
-    $filename = redis_encode($filename);
 
     return unless exec_with_lock( $self, $redis, "upload:$filename", "upload", $filename, sub {
 
@@ -192,8 +192,13 @@ sub create_archive {
         $filename = $filename . $ext;
 
         my $tempfile = $tempdir . '/' . $filename;
-        if ( !$upload->move_to($tempfile) ) {
-            $logger->error("Could not move uploaded file $filename to $tempfile");
+
+        # On Windows Mojo will hold an open handle to the upload file preventing us from using the long-path compatible
+        # methods to move it.
+        # Workaround it by using another temp file as a target for Mojo's move_to so that the original handle can be closed.
+        my $mojo_temp = tmpnam();
+        if ( !$upload->move_to($mojo_temp) ) {
+            $logger->error("Could not move uploaded file $filename to $mojo_temp");
             return $self->render(
                 json => {
                     operation => "upload",
@@ -204,16 +209,21 @@ sub create_archive {
             );
         }
 
-        # Update $tempfile to the exact reference created by the host filesystem
-        # This is done by finding the first (and only) file in $tempdir.
-        find(
-            sub {
-                return if -d $_;
-                $tempfile = $File::Find::name;
-                $filename = $_;
-            },
-            $tempdir
-        );
+        if ( !move_path( $mojo_temp, $tempfile ) ) { # Move the file for real this time
+            $logger->error("Could not move uploaded file $mojo_temp to $tempfile");
+            return $self->render(
+                json => {
+                    operation => "upload",
+                    success   => 0,
+                    error     => "Couldn't move uploaded file to temporary location."
+                },
+                status => 500
+            );
+        }
+
+        if ( IS_UNIX ) {
+            $tempfile = decode_utf8( $tempfile );
+        }
 
         my ( $status_code, $id, $response_title, $message ) =
           LANraragi::Model::Upload::handle_incoming_file( $tempfile, $catid, $tags, $title, $summary );
