@@ -4,17 +4,20 @@ description: Query and modify the database.
 
 # Database API
 
-{% swagger baseUrl="http://lrr.tvc-16.science" path="/api/database/stats" method="get" summary="Get Statistics" %}
-{% swagger-description %}
+## Get Statistics
+
+<mark style="color:blue;">`GET`</mark> `http://lrr.tvc-16.science/api/database/stats`
+
 Get tags from the database, with a value symbolizing their prevalence.
-{% endswagger-description %}
 
-{% swagger-parameter name="minweight" type="int" required="false" in="query" %}
-Add this parameter if you want to only get tags whose weight is at least the given minimum.  
-Default is 1 if not specified, to get all tags.
-{% endswagger-parameter %}
+#### Query Parameters
 
-{% swagger-response status="200" description="" %}
+| Name      | Type | Description                                                                                                                                           |
+| --------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| minweight | int  | <p>Add this parameter if you want to only get tags whose weight is at least the given minimum.<br>Default is 1 if not specified, to get all tags.</p> |
+
+{% tabs %}
+{% tab title="200 " %}
 ```javascript
 [
     {"namespace":"character","text":"jeanne alter","weight":2},
@@ -25,15 +28,17 @@ Default is 1 if not specified, to get all tags.
     {"namespace":"","text":"artbook","weight":2},
 ]
 ```
-{% endswagger-response %}
-{% endswagger %}
+{% endtab %}
+{% endtabs %}
 
-{% swagger baseUrl="http://lrr.tvc-16.science" path="/api/database/clean" method="post" summary="🔑Clean the Database" %}
-{% swagger-description %}
+## 🔑Clean the Database
+
+<mark style="color:green;">`POST`</mark> `http://lrr.tvc-16.science/api/database/clean`
+
 Cleans the Database, removing entries for files that are no longer on the filesystem.
-{% endswagger-description %}
 
-{% swagger-response status="200" description="" %}
+{% tabs %}
+{% tab title="200 " %}
 ```javascript
 {
   "operation": "clean_database",
@@ -42,32 +47,36 @@ Cleans the Database, removing entries for files that are no longer on the filesy
   "unlinked": 0
 }
 ```
-{% endswagger-response %}
-{% endswagger %}
+{% endtab %}
+{% endtabs %}
 
-{% swagger baseUrl="http://lrr.tvc-16.science" path="/api/database/drop" method="post" summary="🔑Drop the Database" %}
-{% swagger-description %}
-Delete the entire database, including user preferences.  
+## 🔑Drop the Database
+
+<mark style="color:green;">`POST`</mark> `http://lrr.tvc-16.science/api/database/drop`
+
+Delete the entire database, including user preferences.\
 This is a rather dangerous endpoint, invoking it might lock you out of the server as a client!
-{% endswagger-description %}
 
-{% swagger-response status="200" description="" %}
+{% tabs %}
+{% tab title="200 " %}
 ```javascript
 {
     "operation":"drop_database",
     "success":1
 }
 ```
-{% endswagger-response %}
-{% endswagger %}
+{% endtab %}
+{% endtabs %}
 
-{% swagger baseUrl="http://lrr.tvc-16.science" path="/api/database/backup" method="get" summary="🔑Get a backup JSON" %}
-{% swagger-description %}
-Scans the entire database and returns a backup in JSON form.  
+## 🔑Get a backup JSON
+
+<mark style="color:blue;">`GET`</mark> `http://lrr.tvc-16.science/api/database/backup`
+
+Scans the entire database and returns a backup in JSON form.\
 This backup can be reimported manually through the Backup and Restore feature.
-{% endswagger-description %}
 
-{% swagger-response status="200" description="" %}
+{% tabs %}
+{% tab title="200 " %}
 ```javascript
 {
     "archives": [
@@ -132,20 +141,22 @@ This backup can be reimported manually through the Backup and Restore feature.
     ]
 }
 ```
-{% endswagger-response %}
-{% endswagger %}
+{% endtab %}
+{% endtabs %}
 
-{% swagger baseUrl="http://lrr.tvc-16.science" path="/api/database/isnew" method="delete" summary="🔑Clear all "New" flags" %}
-{% swagger-description %}
+## 🔑Clear all&#x20;
+
+<mark style="color:red;">`DELETE`</mark> `http://lrr.tvc-16.science/api/database/isnew`
+
 Clears the "New!" flag on all archives.
-{% endswagger-description %}
 
-{% swagger-response status="200" description="" %}
+{% tabs %}
+{% tab title="200 " %}
 ```javascript
 {
     "operation":"clear_new_all",
     "success":1
 }
 ```
-{% endswagger-response %}
-{% endswagger %}
+{% endtab %}
+{% endtabs %}

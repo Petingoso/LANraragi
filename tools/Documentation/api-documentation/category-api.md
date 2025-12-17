@@ -1,11 +1,13 @@
 # Category API
 
-{% swagger baseUrl="http://lrr.tvc-16.science" path="/api/categories" method="get" summary="Get all categories" %}
-{% swagger-description %}
-Get all the categories saved on the server.
-{% endswagger-description %}
+## Get all categories
 
-{% swagger-response status="200" description="" %}
+<mark style="color:blue;">`GET`</mark> `http://lrr.tvc-16.science/api/categories`
+
+Get all the categories saved on the server.
+
+{% tabs %}
+{% tab title="200 " %}
 ```javascript
 [
   {
@@ -37,19 +39,23 @@ Get all the categories saved on the server.
   }
 ]
 ```
-{% endswagger-response %}
-{% endswagger %}
+{% endtab %}
+{% endtabs %}
 
-{% swagger baseUrl="http://lrr.tvc-16.science" path="/api/categories/:id" method="get" summary="Get a single category" %}
-{% swagger-description %}
+## Get a single category
+
+<mark style="color:blue;">`GET`</mark> `http://lrr.tvc-16.science/api/categories/:id`
+
 Get the details of the specified category ID.
-{% endswagger-description %}
 
-{% swagger-parameter name="id" type="string" required="true" in="path" %}
-ID of the Category desired.
-{% endswagger-parameter %}
+#### Path Parameters
 
-{% swagger-response status="200" description="" %}
+| Name                                 | Type   | Description                 |
+| ------------------------------------ | ------ | --------------------------- |
+| id<mark style="color:red;">\*</mark> | string | ID of the Category desired. |
+
+{% tabs %}
+{% tab title="200 " %}
 ```
 {
   "archives": [],
@@ -59,9 +65,9 @@ ID of the Category desired.
   "search": ""
 }
 ```
-{% endswagger-response %}
+{% endtab %}
 
-{% swagger-response status="400" description="" %}
+{% tab title="400 " %}
 ```
 {
   "error": "The given category does not exist.",
@@ -69,27 +75,25 @@ ID of the Category desired.
   "success": 0
 }
 ```
-{% endswagger-response %}
-{% endswagger %}
+{% endtab %}
+{% endtabs %}
 
-{% swagger baseUrl="http://lrr.tvc-16.science" path="/api/categories" method="put" summary="🔑Create a Category" %}
-{% swagger-description %}
+## 🔑Create a Category
+
+<mark style="color:orange;">`PUT`</mark> `http://lrr.tvc-16.science/api/categories`
+
 Create a new Category.
-{% endswagger-description %}
 
-{% swagger-parameter name="pinned" type="boolean" required="false" in="query" %}
-Add this parameter if you want the created category to be pinned.
-{% endswagger-parameter %}
+#### Query Parameters
 
-{% swagger-parameter name="search" type="string" required="false" in="query" %}
-Matching predicate, if creating a Dynamic Category.
-{% endswagger-parameter %}
+| Name                                   | Type    | Description                                                       |
+| -------------------------------------- | ------- | ----------------------------------------------------------------- |
+| pinned                                 | boolean | Add this parameter if you want the created category to be pinned. |
+| search                                 | string  | Matching predicate, if creating a Dynamic Category.               |
+| name<mark style="color:red;">\*</mark> | string  | Name of the Category.                                             |
 
-{% swagger-parameter name="name" type="string" required="true" in="query" %}
-Name of the Category.
-{% endswagger-parameter %}
-
-{% swagger-response status="200" description="" %}
+{% tabs %}
+{% tab title="200 " %}
 ```
 {
   "category_id": "SET_1589383525",
@@ -97,9 +101,9 @@ Name of the Category.
   "success": 1
 }
 ```
-{% endswagger-response %}
+{% endtab %}
 
-{% swagger-response status="400" description="" %}
+{% tab title="400 " %}
 ```
 {
   "error": "Category name not specified.",
@@ -107,36 +111,31 @@ Name of the Category.
   "success": 0
 }
 ```
-{% endswagger-response %}
-{% endswagger %}
+{% endtab %}
+{% endtabs %}
 
-{% swagger baseUrl="http://lrr.tvc-16.science" path="/api/categories/:id" method="put" summary="🔑Update a Category" %}
-{% swagger-description %}
+## 🔑Update a Category
+
+<mark style="color:orange;">`PUT`</mark> `http://lrr.tvc-16.science/api/categories/:id`
+
 Modify a Category.
-{% endswagger-description %}
 
-{% swagger-parameter name="id" type="string" required="true" in="path" %}
-ID of the Category to update.
-{% endswagger-parameter %}
+#### Path Parameters
 
-{% swagger-parameter name="name" type="string" required="false" in="query" %}
-New name of the Category
-{% endswagger-parameter %}
+| Name                                 | Type   | Description                   |
+| ------------------------------------ | ------ | ----------------------------- |
+| id<mark style="color:red;">\*</mark> | string | ID of the Category to update. |
 
-{% swagger-parameter name="search" type="string" required="false" in="query" %}
-Predicate. Trying to add a predicate to a category that already contains Archives will give you an error.
-{% endswagger-parameter %}
+#### Query Parameters
 
-{% swagger-parameter name="pinned" type="boolean" required="false" in="query" %}
-Add this argument to pin the Category.
+| Name   | Type    | Description                                                                                                        |
+| ------ | ------- | ------------------------------------------------------------------------------------------------------------------ |
+| name   | string  | New name of the Category                                                                                           |
+| search | string  | Predicate. Trying to add a predicate to a category that already contains Archives will give you an error.          |
+| pinned | boolean | <p>Add this argument to pin the Category.</p><p>\</p><p>If you don't, the category will be unpinned on update.</p> |
 
-\
-
-
-If you don't, the category will be unpinned on update.
-{% endswagger-parameter %}
-
-{% swagger-response status="200" description="" %}
+{% tabs %}
+{% tab title="200 " %}
 ```
 {
   "category_id": "SET_1589573608",
@@ -144,9 +143,9 @@ If you don't, the category will be unpinned on update.
   "success": 1
 }
 ```
-{% endswagger-response %}
+{% endtab %}
 
-{% swagger-response status="400" description="" %}
+{% tab title="400 " %}
 ```
 {
   "error": "The given category does not exist.",
@@ -154,8 +153,9 @@ If you don't, the category will be unpinned on update.
   "success": 0
 }
 ```
-{% endswagger-response %}
-{% swagger-response status="423" description="Locked resource" %}
+{% endtab %}
+
+{% tab title="423 Locked resource" %}
 ```
 {
   "operation": "update_category",
@@ -163,27 +163,32 @@ If you don't, the category will be unpinned on update.
   "error": "Locked resource: SET_1749366470"
 }
 ```
-{% endswagger-response %}
-{% endswagger %}
+{% endtab %}
+{% endtabs %}
 
-{% swagger baseUrl="http://lrr.tvc-16.science" path="/api/categories/:id" method="delete" summary="🔑Delete a Category" %}
-{% swagger-description %}
+## 🔑Delete a Category
+
+<mark style="color:red;">`DELETE`</mark> `http://lrr.tvc-16.science/api/categories/:id`
+
 Remove a Category.
-{% endswagger-description %}
 
-{% swagger-parameter name="id" type="string" required="true" in="path" %}
-ID of the Category to delete.
-{% endswagger-parameter %}
+#### Path Parameters
 
-{% swagger-response status="200" description="" %}
+| Name                                 | Type   | Description                   |
+| ------------------------------------ | ------ | ----------------------------- |
+| id<mark style="color:red;">\*</mark> | string | ID of the Category to delete. |
+
+{% tabs %}
+{% tab title="200 " %}
 ```
 {
   "operation": "delete_category",
   "success": 1
 }
 ```
-{% endswagger-response %}
-{% swagger-response status="423" description="Locked resource" %}
+{% endtab %}
+
+{% tab title="423 Locked resource" %}
 ```
 {
   "operation": "delete_category",
@@ -191,23 +196,24 @@ ID of the Category to delete.
   "error": "Locked resource: SET_1749366464"
 }
 ```
-{% endswagger-response %}
-{% endswagger %}
+{% endtab %}
+{% endtabs %}
 
-{% swagger baseUrl="http://lrr.tvc-16.science" path="/api/categories/:id/:archive" method="put" summary="🔑Add an Archive to a Category" %}
-{% swagger-description %}
+## 🔑Add an Archive to a Category
+
+<mark style="color:orange;">`PUT`</mark> `http://lrr.tvc-16.science/api/categories/:id/:archive`
+
 Adds the specified Archive ID (see Archive API) to the given Category.
-{% endswagger-description %}
 
-{% swagger-parameter name="id" type="string" required="true" in="path" %}
-Category ID to add the Archive to.
-{% endswagger-parameter %}
+#### Path Parameters
 
-{% swagger-parameter name="archive" type="string" required="true" in="path" %}
-Archive ID to add.
-{% endswagger-parameter %}
+| Name                                      | Type   | Description                        |
+| ----------------------------------------- | ------ | ---------------------------------- |
+| id<mark style="color:red;">\*</mark>      | string | Category ID to add the Archive to. |
+| archive<mark style="color:red;">\*</mark> | string | Archive ID to add.                 |
 
-{% swagger-response status="200" description="" %}
+{% tabs %}
+{% tab title="200 " %}
 ```
 {
   "operation": "add_to_category",
@@ -215,8 +221,9 @@ Archive ID to add.
   "successMessage": "Added \"Name of archive\" to category \"Name of category\""
 }
 ```
-{% endswagger-response %}
-{% swagger-response status="423" description="Locked resource" %}
+{% endtab %}
+
+{% tab title="423 Locked resource" %}
 ```
 {
   "operation": "delete_category",
@@ -224,31 +231,33 @@ Archive ID to add.
   "error": "Locked resource: SET_1749366457"
 }
 ```
-{% endswagger-response %}
-{% endswagger %}
+{% endtab %}
+{% endtabs %}
 
-{% swagger baseUrl="http://lrr.tvc-16.science" path="/api/categories/:id/:archive" method="delete" summary="🔑Remove an Archive from a Category" %}
-{% swagger-description %}
+## 🔑Remove an Archive from a Category
+
+<mark style="color:red;">`DELETE`</mark> `http://lrr.tvc-16.science/api/categories/:id/:archive`
+
 Remove an Archive ID from a Category.
-{% endswagger-description %}
 
-{% swagger-parameter name="id" type="string" required="true" in="path" %}
-Category ID
-{% endswagger-parameter %}
+#### Path Parameters
 
-{% swagger-parameter name="archive" type="string" required="true" in="path" %}
-Archive ID
-{% endswagger-parameter %}
+| Name                                      | Type   | Description |
+| ----------------------------------------- | ------ | ----------- |
+| id<mark style="color:red;">\*</mark>      | string | Category ID |
+| archive<mark style="color:red;">\*</mark> | string | Archive ID  |
 
-{% swagger-response status="200" description="" %}
+{% tabs %}
+{% tab title="200 " %}
 ```
 {
   "operation": "remove_from_category",
   "success": 1
 }
 ```
-{% endswagger-response %}
-{% swagger-response status="423" description="Locked resource" %}
+{% endtab %}
+
+{% tab title="423 Locked resource" %}
 ```
 {
   "operation": "delete_category",
@@ -256,15 +265,17 @@ Archive ID
   "error": "Locked resource: SET_1749366450"
 }
 ```
-{% endswagger-response %}
-{% endswagger %}
+{% endtab %}
+{% endtabs %}
 
-{% swagger baseUrl="http://lrr.tvc-16.science" path="/api/categories/bookmark_link" method="get" summary="Get bookmark link" %}
-{% swagger-description %}
+## Get bookmark link
+
+<mark style="color:blue;">`GET`</mark> `http://lrr.tvc-16.science/api/categories/bookmark_link`
+
 Retrieves the ID of the category currently linked to the bookmark feature. Returns an empty string if no category is linked.
-{% endswagger-description %}
 
-{% swagger-response status="200" description="" %}
+{% tabs %}
+{% tab title="200 " %}
 ```
 {
   "category_id": "SET_1744272066",
@@ -272,19 +283,23 @@ Retrieves the ID of the category currently linked to the bookmark feature. Retur
   "success": 1
 }
 ```
-{% endswagger-response %}
-{% endswagger %}
+{% endtab %}
+{% endtabs %}
 
-{% swagger baseUrl="http://lrr.tvc-16.science" path="/api/categories/bookmark_link/:id" method="put" summary="🔑Update bookmark link" %}
-{% swagger-description %}
+## 🔑Update bookmark link
+
+<mark style="color:orange;">`PUT`</mark> `http://lrr.tvc-16.science/api/categories/bookmark_link/:id`
+
 Links the bookmark feature to the specified static category. This determines which category archives are added to when using the bookmark button.
-{% endswagger-description %}
 
-{% swagger-parameter name="id" type="string" required="true" in="path" %}
-ID of the static category to link with the bookmark feature.
-{% endswagger-parameter %}
+#### Path Parameters
 
-{% swagger-response status="200" description="" %}
+| Name                                 | Type   | Description                                                  |
+| ------------------------------------ | ------ | ------------------------------------------------------------ |
+| id<mark style="color:red;">\*</mark> | string | ID of the static category to link with the bookmark feature. |
+
+{% tabs %}
+{% tab title="200 " %}
 ```
 {
   "category_id": "SET_1744272066",
@@ -292,8 +307,9 @@ ID of the static category to link with the bookmark feature.
   "success": 1
 }
 ```
-{% endswagger-response %}
-{% swagger-response status="400" description="Invalid category ID." %}
+{% endtab %}
+
+{% tab title="400 Invalid category ID." %}
 ```
 {
   "category_id": "SET_1744272066",
@@ -302,8 +318,9 @@ ID of the static category to link with the bookmark feature.
   "error": "Input category ID is invalid."
 }
 ```
-{% endswagger-response %}
-{% swagger-response status="400" description="Attempted to link bookmark to a dynamic category" %}
+{% endtab %}
+
+{% tab title="400 Attempted to link bookmark to a dynamic category" %}
 ```
 {
   "category_id": "SET_1744272066",
@@ -312,8 +329,9 @@ ID of the static category to link with the bookmark feature.
   "error": "Cannot link bookmark to a dynamic category."
 }
 ```
-{% endswagger-response %}
-{% swagger-response status="404" description="Category with specified ID does not exist" %}
+{% endtab %}
+
+{% tab title="404 Category with specified ID does not exist" %}
 ```
 {
   "category_id": "SET_1744272066",
@@ -322,15 +340,17 @@ ID of the static category to link with the bookmark feature.
   "error": "Category does not exist!"
 }
 ```
-{% endswagger-response %}
-{% endswagger %}
+{% endtab %}
+{% endtabs %}
 
-{% swagger baseUrl="http://lrr.tvc-16.science" path="/api/categories/bookmark_link" method="delete" summary="🔑Disable bookmark feature" %}
-{% swagger-description %}
+## 🔑Disable bookmark feature
+
+<mark style="color:red;">`DELETE`</mark> `http://lrr.tvc-16.science/api/categories/bookmark_link`
+
 Disables the bookmark feature by removing the link to any category. Returns the ID of the previously linked category.
-{% endswagger-description %}
 
-{% swagger-response status="200" description="" %}
+{% tabs %}
+{% tab title="200 " %}
 ```
 {
   "category_id": "SET_1744272332",
@@ -338,5 +358,5 @@ Disables the bookmark feature by removing the link to any category. Returns the 
   "success": 1
 }
 ```
-{% endswagger-response %}
-{% endswagger %}
+{% endtab %}
+{% endtabs %}

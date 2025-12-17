@@ -7,7 +7,7 @@ You can download the latest Windows MSI Installer on the [Release Page](https://
 Windows 10 1809 is the minimum supported version. Windows 10 2004 and newer are recommended.
 
 {% hint style="warning" %}
-If you're using Windows 10 1809, UTF-8 support needs to be enabled. You can find instructions [here](#mangled-filenames-when-running-on-windows-10-1809).
+If you're using Windows 10 1809, UTF-8 support needs to be enabled. You can find instructions [here](windows.md#mangled-filenames-when-running-on-windows-10-1809).
 {% endhint %}
 
 {% hint style="info" %}
@@ -18,35 +18,35 @@ Windows Nightlies are available [here](https://nightly.link/Difegue/LANraragi/wo
 
 Simply execute the installer package.
 
-You might get a SmartScreen prompt from Windows as the installer isn't signed; These are perfectly normal.  
+You might get a SmartScreen prompt from Windows as the installer isn't signed; These are perfectly normal.\
 (If you're wondering why I don't sign installers, [this](https://web.archive.org/web/20241204064244/https://gaby.dev/posts/code-signing) article is a good read.)
 
 Once the install completes properly, you'll be able to launch the GUI from the shortcut in your Start Menu:
 
-![](../.screenshots/karen-startmenu.png)
+![](../.gitbook/assets/karen-startmenu.png)
 
 ## Configuration
 
 Starting the GUI for the first time will prompt you to setup your content folder and the port you want the server to listen on. The main GUI is always available from your Taskbar.
 
-![Tray GUI and Settings Window](../.screenshots/karen-light.png)
+![Tray GUI and Settings Window](../.gitbook/assets/karen-light.png)
 
-You can also decide whether to start the GUI alongside Windows, or start LRR alongside the GUI.  
+You can also decide whether to start the GUI alongside Windows, or start LRR alongside the GUI.\
 Combining the two makes it so that LANraragi starts alongside Windows. 🔥🔥🔥
 
 ## Usage
 
-![Tray GUI and Log Console. Check that Dark Theme tho ‍](../.screenshots/karen-dark.png)
+![Tray GUI and Log Console. Check that Dark Theme tho ‍](../.gitbook/assets/karen-dark.png)
 
 Once the program is running, you can open the Web Client through the shortcut button on the user interface. You can also toggle the Log Console on/off to see what's going on behind the scenes.
 
 ## Updating
 
-Updates have to be done manually by downloading and running the latest installer.  
+Updates have to be done manually by downloading and running the latest installer.
 
 ## Uninstallation
 
-Simply uninstall the app from Windows Settings.  
+Simply uninstall the app from Windows Settings.\
 Presto! Your database is not deleted in case you ever fancy coming back.
 
 ## Troubleshooting
@@ -67,7 +67,7 @@ and open a GitHub issue with it.
 
 ### Server isn't available on `localhost:3000` even though it has started properly
 
-Running the application as Administrator might fix this in some instances.  
+Running the application as Administrator might fix this in some instances.\
 Otherwise, make sure the Windows Firewall isn't blocking any `perl` process.
 
 ### Mangled filenames when running on Windows 10 1809
@@ -76,12 +76,12 @@ This specific version of Windows 10 does not support per application UTF-8 so it
 
 Run `intl.cpl` to open the Region settings, select the "Administrative" tab and click on "Change system locale..."
 
-![](../.screenshots/utf8-region.png)
+![](../.gitbook/assets/utf8-region.png)
 
 In the popup select the "Beta: Use Unicode UTF-8" option.
 
-![](../.screenshots/utf8-popup.png)
+![](../.gitbook/assets/utf8-popup.png)
 
 Restart and use the "Rescan content folder" button to fix existing paths.
 
-![](../.screenshots/utf8-restart.png)
+![](../.gitbook/assets/utf8-restart.png)
