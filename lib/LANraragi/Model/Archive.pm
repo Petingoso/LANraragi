@@ -231,16 +231,18 @@ sub serve_thumbnail {
         $self->render_file( filepath => $thumbname );
     }
 }
-sub get_page_data ($id, $path) {
-    my $cachekey     = "page/$id/$path";
-    my $content = fetch($cachekey);
+
+sub get_page_data ( $id, $path ) {
+    my $cachekey = "page/$id/$path";
+    my $content  = fetch($cachekey);
     if ( !defined($content) ) {
+
         # Extract the file from the parent archive if it doesn't exist
-        my $redis = LANraragi::Model::Config->get_redis;
+        my $redis   = LANraragi::Model::Config->get_redis;
         my $archive = get_archive_path( $redis, $id );
         $redis->quit();
-        $content = extract_single_file($archive, $path);
-        put($cachekey, $content);
+        $content = extract_single_file( $archive, $path );
+        put( $cachekey, $content );
     }
     return $content;
 }
@@ -256,14 +258,14 @@ sub serve_page {
     if ( LANraragi::Model::Config->enable_resize ) {
 
         # Store resized files in a subfolder of the ID's temp folder, keyed by quality
-        my $threshold    = LANraragi::Model::Config->get_threshold;
-        my $quality      = LANraragi::Model::Config->get_readquality;
+        my $threshold = LANraragi::Model::Config->get_threshold;
+        my $quality   = LANraragi::Model::Config->get_readquality;
 
         my $cachekey = "resize_page/$id/$path/$threshold/$quality";
-        my $content = fetch($cachekey);
-        if ( !defined($content)) {
-            $content = LANraragi::Model::Reader::resize_image(get_page_data($id, $path), $quality, $threshold);
-            put($cachekey, $content);
+        my $content  = fetch($cachekey);
+        if ( !defined($content) ) {
+            $content = LANraragi::Model::Reader::resize_image( get_page_data( $id, $path ), $quality, $threshold );
+            put( $cachekey, $content );
         }
 
         # resize_image always converts the image to jpg
@@ -274,10 +276,11 @@ sub serve_page {
         );
     } else {
 
-     # Get the file extension to report content-type properly
+        # Get the file extension to report content-type properly
         my ( $n, $p, $file_ext ) = fileparse( $path, qr/\.[^.]*/ );
-        my $content = get_page_data($id, $path);
-        $logger->debug("Data size:".length($content));
+        my $content = get_page_data( $id, $path );
+        $logger->debug( "Data size:" . length($content) );
+
         # Serve extracted file directly
         $self->render_file(
             data                => $content,
@@ -354,7 +357,7 @@ sub delete_archive ($id) {
     LANraragi::Utils::Database::update_indexes( $id, $oldtags, "" );
 
     if ( -e $filename ) {
-        my $status = unlink_path( $filename );
+        my $status = unlink_path($filename);
 
         my $thumbdir  = LANraragi::Model::Config->get_thumbdir;
         my $subfolder = substr( $id, 0, 2 );
