@@ -25,7 +25,7 @@ sub get_tankoubon {
     my $tank_id = $self->stash('id');
     my $req     = $self->req;
 
-    my $fulldata = $req->param('include_full_data');
+    my $fulldata = ( $self->req->param('include_full_data') && $self->req->param('include_full_data') ne "false" ) ? 1 : 0;
     my $page     = $req->param('page');
 
     my ( $total, $filtered, %tankoubon ) = LANraragi::Model::Tankoubon::get_tankoubon( $tank_id, $fulldata, $page );
