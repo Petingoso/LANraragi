@@ -15,11 +15,11 @@ For creating the jail on a regular FreeBSD installation, refer to its [documenta
 
 For creating the jail on FreeNAS, simply navigate to the jails tab in the webui and click on 'add'.
 
-![Jail Overview](/broken/files/2DmZcUzp1TSIXXM2QeKb)
+![Jail Overview](<../.gitbook/assets/jails (1).jpg>)
 
 After creating the jail enter it, type `pkg` and confirm the next prompt.
 
-![Entering a jail](/broken/files/NVzfUNu7G0i2GClEEwN9)
+![Entering a jail](../.gitbook/assets/shell.jpg)
 
 If you want to install it on the main system itself (which in most cases is not recommended) you can simply skip this step.
 
@@ -115,7 +115,7 @@ Now LANraragi should run as a service.
 
 In many setups, jails are running on fast but small drives while the bulk of data is offloaded somewhere else. If you are running a similar config you might want to consider offloading your content and tmp folders from your SSD to your HDDs with the help of mountpoints.
 
-![Mountpoints](/broken/files/DHdZqXB4iWBVGbs1cwW9)
+![Mountpoints](../.gitbook/assets/mountpoints.jpg)
 
 ## Updating
 

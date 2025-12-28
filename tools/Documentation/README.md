@@ -1,5 +1,5 @@
 ---
-cover: /broken/files/WJ4Ln9vHlUXqwJXdRVDV
+cover: .gitbook/assets/archive_list.png
 coverY: 398.3528320809505
 ---
 

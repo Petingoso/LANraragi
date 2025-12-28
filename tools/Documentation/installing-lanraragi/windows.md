@@ -23,20 +23,20 @@ You might get a SmartScreen prompt from Windows as the installer isn't signed; T
 
 Once the install completes properly, you'll be able to launch the GUI from the shortcut in your Start Menu:
 
-![](/broken/files/miqGFC32nGKDfrrsxJjJ)
+![](../.gitbook/assets/karen-startmenu.png)
 
 ## Configuration
 
 Starting the GUI for the first time will prompt you to setup your content folder and the port you want the server to listen on. The main GUI is always available from your Taskbar.
 
-![Tray GUI and Settings Window](/broken/files/a0GCsYzjnUx7gEofgawz)
+![Tray GUI and Settings Window](../.gitbook/assets/karen-light.png)
 
 You can also decide whether to start the GUI alongside Windows, or start LRR alongside the GUI.\
 Combining the two makes it so that LANraragi starts alongside Windows. 🔥🔥🔥
 
 ## Usage
 
-![Tray GUI and Log Console. Check that Dark Theme tho ](/broken/files/IEK7JIMtEXxRXBTt5iwC)
+![Tray GUI and Log Console. Check that Dark Theme tho ](../.gitbook/assets/karen-dark.png)
 
 Once the program is running, you can open the Web Client through the shortcut button on the user interface. You can also toggle the Log Console on/off to see what's going on behind the scenes.
 
@@ -78,12 +78,12 @@ This specific version of Windows 10 does not support per application UTF-8 so it
 
 Run `intl.cpl` to open the Region settings, select the "Administrative" tab and click on "Change system locale..."
 
-![](/broken/files/Fo1OkK4wAVN0mMtNO27e)
+![](../.gitbook/assets/utf8-region.png)
 
 In the popup select the "Beta: Use Unicode UTF-8" option.
 
-![](/broken/files/BnDsQl0Lb4I4eFLSzygM)
+![](../.gitbook/assets/utf8-popup.png)
 
 Restart and use the "Rescan content folder" button to fix existing paths.
 
-![](/broken/files/U8bXky0LFYbVXZ8bqiFB)
+![](../.gitbook/assets/utf8-restart.png)

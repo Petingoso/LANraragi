@@ -6,7 +6,7 @@ description: Organize your archives in dynamic or static categories.
 
 Categories appear in the archive index as shortcut buttons.
 
-![Example categories](/broken/files/-LgCJtWEGBwpcc7_pvIE)
+![Example categories](<../.gitbook/assets/favtags (1).jpg>)
 
 There are two distinct kinds:
 
@@ -18,11 +18,11 @@ Toggling a category in the index will restrict all your searches to that categor
 \
 **📌Pinned** Categories will always show first.
 
-![filtered](/broken/files/kjB7qOhHADEi9pncYByj)
+![filtered](../.gitbook/assets/category_filtered.png)
 
 To create categories, you can use the dedicated setting page in the app:
 
-![Category creation page](/broken/files/-M7nk3hpyh-aEzACHiRf)
+![Category creation page](<../.gitbook/assets/categories (1).png>)
 
 {% hint style="info" %}
 If you have an existing folder hierarchy for your Archives, LRR can automatically create categories from said hierarchy through the dedicated utility Script.
@@ -36,7 +36,7 @@ LANraragi includes a bookmark feature that provides a quick way to add or remove
 
 When enabled, a bookmark icon appears next to all archive thumbnails on the homepage and in the reader interface. Clicking this icon instantly adds or removes the archive from the linked category, making content curation faster and more convenient.
 
-![Bookmark icon](/broken/files/T2TjeyQG1dd36b3apLZ6)
+![Bookmark icon](../.gitbook/assets/bookmark_button.png)
 
 You can link the bookmark feature to any static category of your choice. To change which category is used, navigate to the Category Management page, select the desired static category, and enable the "Store Bookmarks in this Category" toggle.
 
@@ -46,7 +46,7 @@ Only static categories can be linked to the bookmark feature. Dynamic categories
 
 To disable the bookmark feature entirely, simply toggle off the "Store Bookmarks in this Category" option for the currently linked category.
 
-![Bookmark configuration toggle](/broken/files/DZE2aqwiBr5uw0jHc9az)
+![Bookmark configuration toggle](../.gitbook/assets/bookmark_config.png)
 
 {% hint style="info" %}
 If you delete a category that is currently linked to the bookmark feature, the bookmark functionality will be automatically disabled.

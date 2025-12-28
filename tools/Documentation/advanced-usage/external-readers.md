@@ -11,7 +11,7 @@ Here are some existing clients:
 ### [Ichaival (Android)](https://github.com/Utazukin/Ichaival)
 
 [Download it here.](https://github.com/Utazukin/Ichaival)\
-![ichaival](/broken/files/E9YCnlRBi4NX50nBtyTD)
+![ichaival](<../.gitbook/assets/ichaival (1).png>)
 
 **Features:**
 
@@ -24,7 +24,7 @@ Here are some existing clients:
 ### [LANreader (iOS)](https://github.com/Doraemoe/LANreader)
 
 [Download it on the App Store.](https://github.com/Doraemoe/LANreader)\
-![dureader](/broken/files/Ftu8QwDse1NCRMqXmcFM)
+![dureader](<../.gitbook/assets/dureader (1).jpg>)
 
 ### [LRReader (Windows 10)](https://github.com/Guerra24/LRReader)
 
@@ -42,7 +42,7 @@ Here are some existing clients:
 
 ### Mihon / Tachiyomi (Android)
 
-![Mihon / Tachiyomi](/broken/files/-M7nnCQh5pKnnLkufJcL)
+![Mihon / Tachiyomi](<../.gitbook/assets/tachiyomi (1).jpg>)
 
 [Mihon](https://mihon.app), formerly Tachiyomi, and [its forks](https://mihon.app/forks/) use extensions that provide sources.\
 The LANraragi extension is part of the [Keiyoushi](https://github.com/keiyoushi) repository.
@@ -54,14 +54,14 @@ There may be additional repositories not linked here that provide the extension 
 
 ### LRR React Web
 
-![LRR React-Web](/broken/files/qvy2WQ9uS5XETii6tTx2)
+![LRR React-Web](../.gitbook/assets/lrr_react.jpg)
 
 A React-based frontend PWA making use of the Client API. "Works best on mobile and tablet viewports, but the desktop experience is okay."\
 Check it out [here.](https://github.com/hibikikuze4dan/lanraragi-react-web)
 
 ## Generic OPDS readers
 
-![Example OPDS reader](/broken/files/jczvteH1lY9DGzuwnpx2)
+![Example OPDS reader](<../.gitbook/assets/opds (1).jpg>)
 
 Some readers can leverage the [OPDS Catalog](https://opds.io) exposed by LANraragi to visualize and read the available archives.\
 Those programs can't exploit all of LRR's features(Search, Database backup), but they might have reading features you won't find in the current dedicated clients.

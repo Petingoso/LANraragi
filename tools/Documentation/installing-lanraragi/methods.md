@@ -13,7 +13,7 @@ Look at the methods below for something that fits your OS and usage.
 
 [Homebrew](https://brew.sh) allows you to quickly setup LRR on macOS and Linux without relying on containers or modifying your preinstalled system libaries.
 
-![brew](/broken/files/-LsHQKSRXzgkw-PkCLE9)
+![brew](<../.gitbook/assets/brew (1).jpg>)
 
 {% content-ref url="macos.md" %}
 [macos.md](macos.md)
@@ -29,7 +29,7 @@ While not a part of the main repo, you can check out the [Nix](community.md) pac
 This method works on **64-bit** editions of Windows 10 only.
 {% endhint %}
 
-![win10](/broken/files/ESei1rBJaGexKMVOF8Q0)
+![win10](../.gitbook/assets/karen.png)
 
 I provide a dedicated installer for Windows machines as of 0.6.0, complete with a GUI and autostart.
 
@@ -72,6 +72,6 @@ Similar to installing from source with an altered process for FreeBSD compatabil
 
 ## Windows 7 or 8: don't
 
-![I really hope you guys don't do this](/broken/files/E7OXPDJwmbXCFqaeN9X9)
+![I really hope you guys don't do this](<../.gitbook/assets/shiggy (1).png>)
 
 Switch to 10 or Linux.
