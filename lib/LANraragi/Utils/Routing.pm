@@ -136,7 +136,7 @@ sub apply_routes {
     }
 
     $public_api->delete('/api/archives/:id/isnew')->to('api-archive#clear_new');
-    $public_api->get('/api/archives/:id')->to('api-archive#serve_metadata');
+    $public_api->get('/api/archives/:id')->to('api-archive#serve_metadata');    # Deprecated, remove eventually
     $public_api->get('/api/archives/:id/metadata')->to('api-archive#serve_metadata');
     $public_api->get('/api/archives/:id/categories')->to('api-archive#get_categories');
     $public_api->get('/api/archives/:id/tankoubons')->to('api-tankoubon#get_tankoubons_file');
