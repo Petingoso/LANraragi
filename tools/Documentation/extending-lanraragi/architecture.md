@@ -118,7 +118,6 @@ root/
 |  +- *.html.tt2
 |
 |- tools         <- Contains scripts for building and installing LRR.
-|  |- _screenshots  <- Screenshots
 |  |- Documentation <- What you're reading right now
 |  |- build         <- Build tools and scripts
 |     |- docker           <- Dockerfile and configuration files for LRR Docker Container

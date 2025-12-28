@@ -4,7 +4,7 @@
 
 The main page will show all the Archives loaded into the application, sorted by name.
 
-![Archive Index in Thumbnail mode](https://raw.githubusercontent.com/Difegue/LANraragi/dev/tools/_screenshots/archive_thumb.png)
+![Archive Index in Thumbnail mode](../.gitbook/assets/archive_thumb.png)
 
 You can customize display options to show the index in compact mode, as well as to select which namespace to use in the two extra columns.
 
@@ -12,7 +12,7 @@ You can customize display options to show the index in compact mode, as well as 
 
 The topmost **carousel** view will show random archives from your current search in both thumbnail and compact modes -- It can also be configured to show New or Untagged archives instead.
 
-![Index page of a regular LRR install in compact mode](https://raw.githubusercontent.com/Difegue/LANraragi/dev/tools/_screenshots/archive_list.png)
+![Index page of a regular LRR install in compact mode](../.gitbook/assets/archive_list.png)
 
 {% hint style="info" %}
 Don't forget you can **right-click** archives to show a context menu, allowing you to edit/download/delete them, or to add them to a category.
@@ -35,7 +35,7 @@ The Reader Options button shows the various options you can toggle to change the
 
 The Page Overlay button (also actionable by pressing **CTRL**) will show all the pages of the current archive, allowing for quick navigation and preview.
 
-![Reader with overlay](https://raw.githubusercontent.com/Difegue/LANraragi/dev/tools/_screenshots/reader_overlay.jpg)
+![Reader with overlay](../.gitbook/assets/reader_overlay.jpg)
 
 Starting with 0.7.8, you can also quickly check the metadata here.
 
