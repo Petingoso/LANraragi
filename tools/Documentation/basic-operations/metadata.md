@@ -4,7 +4,7 @@
 
 To use a plugin on a single archive, you need to access its **editing** page by clicking the pencil icon on the main view. From here, you can modify all metadata manually. Don't forget to save!
 
-![Editing an Archive's Metadata](../.gitbook/assets/edit.PNG)
+![Editing an Archive's Metadata](/broken/files/vPgaoWEzIHlBria9BROm)
 
 {% hint style="danger" %}
 The "Delete Archive" button will permanently wipe the Archive from your filesystem!
@@ -27,7 +27,7 @@ For more info on Batch Tagging, check the following article:
 
 To use plugins automatically, you have to first use the **Plugin Configuration** page to choose which plugins will be automatically executed, and set their options if they need any.
 
-![Plugin Configuration (on this screenshot, eze and regex parsing will be executed automatically.)](../.gitbook/assets/cfg_plugin.png)
+![Plugin Configuration (on this screenshot, eze and regex parsing will be executed automatically.)](/broken/files/wPSNJaZUMn3nQrc8NIrj)
 
 LRR ships with a few plugins out of the box, in the _/lib/LANraragi/Plugins_ folder.\
 To install other Plugins (in .pm format), drag them to this folder and they'll appear in Plugin Configuration.

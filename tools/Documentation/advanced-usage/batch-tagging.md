@@ -12,7 +12,7 @@ Editing tags manually for each file ain't gonna cut it...
 
 Enter **Batch Tagging**, allowing for laser-focus, one-time operations over large sets of archives.
 
-![Batch Tagging interface as of 0.5.6](../.gitbook/assets/batch.png)
+![Batch Tagging interface as of 0.5.6](/broken/files/BSutbGX1Gi7iq7bvkjVj)
 
 All your archives are shown in the checklist on the right, with archives with no tags pre-checked for ease of access.
 
@@ -33,6 +33,6 @@ One-shot arguments, such as specifying a E-Hentai URL, are only available when e
 
 If you set a timeout value, the batch session will wait the specified time between archives.
 
-![Batch Tagging status window](../.gitbook/assets/batchlog.png)
+![Batch Tagging status window](/broken/files/OvLogzPwSM424nowi485)
 
 While a batch session runs, you get a live summary of what the server is doing, and can cancel at any time.

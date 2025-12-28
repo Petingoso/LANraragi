@@ -17,4 +17,4 @@ This JSON can then be restored in another LRR instance, if it has archives with 
 You can also make backup JSONs with the `npm run backup-db` command or through the Client API.
 {% endhint %}
 
-![Average backup.json](../.gitbook/assets/backup.png)
+![Average backup.json](/broken/files/Qxhzb8XvmI8GppXOacNK)
