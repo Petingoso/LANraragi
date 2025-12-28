@@ -46,8 +46,10 @@
 * [Database API](api-documentation/database-api.md)
 * [Category API](api-documentation/category-api.md)
 * [Tankoubon API](api-documentation/tankoubon-api.md)
+* [Plugin API](api-documentation/plugin-api.md)
 * [Shinobu API](api-documentation/shinobu-api.md)
 * [Minion API](api-documentation/minion-api.md)
+* [OPDS Catalog](api-documentation/opds-catalog.md)
 * [Miscellaneous other API](api-documentation/miscellaneous-other-api.md)
 
 ## Writing Plugins <a href="#plugin-docs" id="plugin-docs"></a>
