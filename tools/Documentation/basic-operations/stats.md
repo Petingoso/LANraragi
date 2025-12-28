@@ -4,7 +4,7 @@
 
 This page shows basic stats about your content folder, as well as your most used tags.
 
-![](<../.gitbook/assets/cloud (1).PNG>)
+![](../.gitbook/assets/cloud.png)
 
 ## Logs
 
