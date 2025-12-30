@@ -13,26 +13,28 @@ use Mojo::DOM;
 #You can also use the LRR Internal API when fitting.
 use LANraragi::Model::Plugins;
 use LANraragi::Utils::Logging qw(get_plugin_logger);
-use LANraragi::Utils::String qw(trim trim_CRLF);
+use LANraragi::Utils::String  qw(trim trim_CRLF);
 
 #Meta-information about your plugin.
 sub plugin_info {
 
     return (
         #Standard metadata
-        name       => "FAKKU",
-        type       => "metadata",
-        namespace  => "fakkumetadata",
-        login_from => "fakkulogin",
-        author     => "Difegue, Nodja",
-        version    => "0.8",
+        name        => "FAKKU",
+        type        => "metadata",
+        namespace   => "fakkumetadata",
+        login_from  => "fakkulogin",
+        author      => "Difegue, Nodja, Nixis198",
+        version     => "1.0.1",
         description =>
-          "Searches FAKKU for tags matching your archive. If you have an account, don't forget to enter the matching cookie in the login plugin to be able to access controversial content. <br/><br/>  
-           <i class='fa fa-exclamation-circle'></i> <b>This plugin can and will return invalid results depending on what you're searching for!</b> <br/>The FAKKU search API isn't very precise and I recommend you use the Chaika.moe plugin when possible.",
+          "Searches FAKKU for tags matching your archive. If you have an account, don't forget to enter the matching cookie in the login plugin to be able to access controversial content. <br/><br/>
+           <i class='fa fa-exclamation-circle'></i> <b>This plugin can and will return invalid results depending on what you're searching for!</b> <br/>The FAKKU search API isn't very precise and I recommend you either enable 'Only use current title for exact matches', or use the Chaika.moe plugin when possible.",
         icon =>
           "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAFiUAABYlAUlSJPAAAACZSURBVDhPlY+xDYQwDEWvZgRGYA22Y4frqJDSZhFugiuuo4cqPGT0iTjAYL3C+fGzktc3hEcsQvJq6HtjE2Jdv4viH4a4pWnL8q4A6g+ET9P8YhS2/kqwIZXWnwqChDxPfCFfD76wOzJ2IOR/0DSwnuRKYAKUW3gq2OsJTYM0jr7QVRVwlabJEaw3ARYBcmFXeomxphIeEMIMmh3lOLQR+QQAAAAASUVORK5CYII=",
-        parameters  => [ { type => "bool", desc => "Save archive title" } ],
-        oneshot_arg => "FAKKU Gallery URL (Will attach tags matching this exact gallery to your archive)"
+        oneshot_arg => "FAKKU Gallery URL (Will attach tags matching this exact gallery to your archive)",
+        parameters  => [
+            { type => "bool", desc => "Add 'Source' tag" }, { type => "bool", desc => "Only use current title for exact matches" }
+        ]
     );
 
 }
@@ -43,44 +45,50 @@ sub get_tags {
     shift;
     my $lrr_info = shift;                     # Global info hash
     my $ua       = $lrr_info->{user_agent};
-
-    my ($savetitle) = @_;                     # Plugin parameters
+    my ( $add_source, $safe_mode ) = @_;
 
     my $logger = get_plugin_logger();
 
     # Work your magic here - You can create subs below to organize the code better
-    my $fakku_URL = "";
+
+    if ( !fakku_cookie_exists( $ua->cookie_jar ) ) {
+        die "Not logged in to FAKKU! Set your FAKKU SID in the plugin settings page!\n";
+    }
 
     # If the user specified a oneshot argument, use it as-is.
     # We could stand to pre-check it to see if it really is a FAKKU URL but meh
-    if ( $lrr_info->{oneshot_param} ) {
-        $fakku_URL = $lrr_info->{oneshot_param};
-    } else {
+    my $fakku_URL = $lrr_info->{oneshot_param};
 
-        # Search for a FAKKU URL if the user didn't specify one
-        $fakku_URL = search_for_fakku_url( $lrr_info->{archive_title}, $ua );
-    }
+    # No URL? Looks for the "source:" in the existing tags.
+    $fakku_URL = get_url_from_tags( $lrr_info->{existing_tags} ) if ( !$fakku_URL );
+
+    # Assume URLs coming from the one-shot parameter or tags are reliable.
+    my $URL_safe = !!$fakku_URL;
+
+    # Still nothing? Search for a FAKKU URL using the title
+    $fakku_URL = search_for_fakku_url( $lrr_info->{archive_title}, $ua ) if ( !$fakku_URL );
 
     # Do we have a URL to grab data from?
-    if ( $fakku_URL ne "" ) {
-        $logger->debug("Detected FAKKU URL: $fakku_URL");
-    } else {
-        $logger->info("No matching FAKKU Gallery Found!");
-        return ( error => "No matching FAKKU Gallery Found!" );
+    if ( !$fakku_URL ) {
+        my $message = "No matching FAKKU Gallery Found!";
+        $logger->info($message);
+        die "${message}\n";
     }
+    $logger->debug("Detected FAKKU URL: $fakku_URL");
 
-    my ( $newtags, $newtitle );
-    eval { ( $newtags, $newtitle ) = get_tags_from_fakku( $fakku_URL, $ua ); };
+    my ( $newtags, $newtitle, $newSummary ) = get_tags_from_fakku( $fakku_URL, $ua, $add_source );
 
-    if ($@) {
-        return ( error => $@ );
+    my $current_title = $lrr_info->{archive_title};
+
+    if ( $safe_mode && !$URL_safe && $newtitle ne $current_title ) {
+        $logger->info("Found FAKKU Gallery '$newtitle', but it does not match current title '$current_title' exactly");
+        die "Exact title match not found\n";
     }
 
     $logger->info("Sending the following tags to LRR: $newtags");
 
     #Return a hash containing the new metadata - it will be integrated in LRR.
-    if ( $savetitle && $newtags ne "" ) { return ( tags => $newtags, title => $newtitle ); }
-    else                                { return ( tags => $newtags ); }
+    return ( tags => $newtags, title => $newtitle, summary => $newSummary );
 }
 
 ######
@@ -97,8 +105,8 @@ sub search_for_fakku_url {
 
     my $dom = get_search_result_dom( $title, $ua );
 
-    # Get the first link on the page that starts with '/hentai/' if we have a span that says "search results" in the page
-    my $path = ( $dom->at('span:text(Search Results)') ) ? $dom->at('a[href^="/hentai/"]')->attr('href') : "";
+    # Get the first link on the page that starts with '/hentai/'
+    my $path = $dom->at('[href^="/hentai/"]')->attr('href');
 
     if ( $path ne "" ) {
         return $fakku_host . $path;
@@ -138,7 +146,8 @@ sub get_search_result_dom {
     $logger->debug("Using URL $URL to search on FAKKU.");
 
     my $res = $ua->max_redirects(5)->get($URL)->result;
-    $logger->debug( "Got this HTML: " . $res->body );
+
+    # $logger->debug( "Got this HTML: " . $res->body );
 
     return $res->dom;
 }
@@ -152,7 +161,8 @@ sub get_dom_from_fakku {
     my $res = $ua->max_redirects(5)->get($url)->result;
 
     my $html = $res->body;
-    $logger->debug( "Got this HTML: " . $html );
+
+    # $logger->debug( "Got this HTML: " . $html );
     if ( $html =~ /.*error code: (\d*).*/gim ) {
         $logger->debug("Blocked by Cloudflare, aborting for now. (Error code $1)");
         die "The plugin has been blocked by Cloudflare. (Error code $1) Try opening FAKKU in your browser to bypass this.";
@@ -165,7 +175,7 @@ sub get_dom_from_fakku {
 # Parses a FAKKU URL for tags.
 sub get_tags_from_fakku {
 
-    my ( $url, $ua ) = @_;
+    my ( $url, $ua, $add_url ) = @_;
 
     my $logger = get_plugin_logger();
 
@@ -173,7 +183,7 @@ sub get_tags_from_fakku {
 
     # find the "suggest more tags" link and use parent div
     # this is not ideal, but the divs don't have named classes anymore
-    my $tags_parent = $dom->at('a[data-tippy-content="Suggest More Tags"]')->parent;
+    my $tags_parent = $dom->at('[data-tippy-content="Suggest More Tags"]')->parent;
 
     # div that contains other divs with title, namespaced tags (artist, magazine, etc.) and misc tags
     my $metadata_parent = $tags_parent->parent->parent;
@@ -183,6 +193,23 @@ sub get_tags_from_fakku {
     $logger->debug("Parsed title: $title");
 
     my @tags = ();
+
+    # Finds the DIV for the Summary.
+    my $summ_selector = 'meta[name="description"]';
+    my $summ_div      = $dom->at($summ_selector);
+    my $summary;
+
+    # # If the Summary DIV doesn't exist, return a blank string.
+    if ($summ_div) {
+        $summary = $summ_div->{content};
+    } else {
+        $summary = "";
+    }
+
+    # If no FAKKU description exists, just keep it blank.
+    if ( $summary eq "No description has been written." ) {
+        $summary = "";
+    }
 
     # We can grab some namespaced tags from the first few div.
     my @namespaces = $metadata_parent->children('div')->each;
@@ -203,6 +230,11 @@ sub get_tags_from_fakku {
 
         $value = trim($value);
         $value = trim_CRLF($value);
+
+        # for the edgecase if the gallery is in the top 10 of 2 categories
+        if ( $value eq "in  this month." || $value eq " in  this month." ) {
+            next;
+        }
 
         $logger->debug("Parsed row: $namespace");
         $logger->debug("Matching tag: $value");
@@ -230,8 +262,56 @@ sub get_tags_from_fakku {
         }
     }
 
-    return ( join( ', ', @tags ), $title );
+    # Adds the source tag is enabled.
+    if ($add_url) {
+        $url =~ s{^https://www\.}{}i;
+        push( @tags, "source:" . $url );
+    }
 
+    return ( join( ', ', @tags ), $title, $summary );
+
+}
+
+sub fakku_cookie_exists {
+    my ($cookie_jar) = @_;
+
+    my $logger = get_plugin_logger();
+    $logger->debug("Checking Cookies");
+
+    my $cookies = $cookie_jar->all;
+    if (@$cookies) {
+
+        for my $cookie (@$cookies) {
+            if ( $cookie->name eq "fakku_sid" ) {
+                $logger->debug("The needed cookie was found.");
+                return 1;
+            }
+        }
+
+        $logger->debug("The needed cookie was not found.");
+
+    } else {
+        $logger->debug("No Cookies were found!");
+    }
+    return;
+}
+
+sub get_url_from_tags {
+    my ($actual_tags) = @_;
+    if ($actual_tags) {
+        my @tags    = split( ',', $actual_tags );
+        my $pattern = qr/^source:(.+)$/;
+
+        foreach my $tag (@tags) {
+            if ( $tag =~ $pattern ) {
+                my $foundURL = $1;
+                if ( $foundURL =~ /fakku\.net/ ) {    #Makes sure the found url is a fakku.net url.
+                    return $foundURL;
+                }
+            }
+        }
+    }
+    return;
 }
 
 1;

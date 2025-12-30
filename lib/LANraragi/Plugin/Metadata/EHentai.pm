@@ -1,5 +1,8 @@
 package LANraragi::Plugin::Metadata::EHentai;
 
+use v5.36;
+use experimental 'try';
+
 use strict;
 use warnings;
 no warnings 'uninitialized';
@@ -20,19 +23,18 @@ sub plugin_info {
 
     return (
         #Standard metadata
-        name       => "E-Hentai",
-        type       => "metadata",
-        namespace  => "ehplugin",
-        login_from => "ehlogin",
-        author     => "Difegue and others",
-        version    => "2.5.1",
+        name        => "E-Hentai",
+        type        => "metadata",
+        namespace   => "ehplugin",
+        login_from  => "ehlogin",
+        author      => "Difegue and others",
+        version     => "2.6",
         description =>
           "Searches g.e-hentai for tags matching your archive. <br/><i class='fa fa-exclamation-circle'></i> This plugin will use the source: tag of the archive if it exists.",
         icon =>
           "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAABmJLR0QA/wD/AP+gvaeTAAAACXBI\nWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH4wYBFg0JvyFIYgAAAB1pVFh0Q29tbWVudAAAAAAAQ3Jl\nYXRlZCB3aXRoIEdJTVBkLmUHAAAEo0lEQVQ4y02UPWhT7RvGf8/5yMkxMU2NKaYIFtKAHxWloYNU\ncRDeQTsUFPwAFwUHByu4ODq4Oghdiri8UIrooCC0Lx01ONSKfYOioi1WpWmaxtTm5PTkfNzv0H/D\n/9oeePjdPNd13Y8aHR2VR48eEUURpmmiaRqmaXbOAK7r4vs+IsLk5CSTk5P4vo9hGIgIsViMra0t\nCoUCRi6XY8+ePVSrVTRN61yybZuXL1/y7t078vk8mUyGvXv3cuLECWZnZ1lbW6PdbpNIJHAcB8uy\nePr0KYZlWTSbTRKJBLquo5TCMAwmJia4f/8+Sini8Ti1Wo0oikin09i2TbPZJJPJUK/XefDgAefO\nnWNlZQVD0zSUUvi+TxAE6LqOrut8/fqVTCaDbdvkcjk0TSOdTrOysoLrujiOw+bmJmEYMjAwQLVa\nJZVKYXR1ddFut/F9H9M0MU0T3/dZXV3FdV36+/vp7u7m6NGj7Nq1i0qlwuLiIqVSib6+Pubn5wGw\nbZtYLIaxMymVSuH7PpZlEUURSina7TZBEOD7Pp8/fyYMQ3zfZ25ujv3795NOp3n48CE9PT3ouk4Q\nBBi/fv3Ctm0cx6Grq4utrS26u7sREQzDIIoifv78SU9PD5VKhTAMGRoaYnV1leHhYa5evUoQBIRh\niIigiQhRFKHrOs1mE9u2iaKIkydPYhgGAKZp8v79e+LxOPl8Htd1uXbtGrdv3yYMQ3ZyAODFixeb\nrVZLvn//Lq7rSqVSkfX1dREROXz4sBw/flyUUjI6OipXrlyRQ4cOSbPZlCiKxHVdCcNQHMcRz/PE\ndV0BGL53756sra1JrVaT9fV1cRxHRESGhoakr69PUqmUvHr1SsrlsuzI931ptVriuq78+fNHPM+T\nVqslhoikjh075p09e9ba6aKu6/T39zM4OMjS0hIzMzM0Gg12794N0LEIwPd9YrEYrusShiEK4Nmz\nZ41yudyVy+XI5/MMDAyQzWap1+tks1lEhIWFBQqFArZto5QiCAJc1+14t7m5STweRwOo1WoSBAEj\nIyMUi0WSySQiQiqV6lRoYWGhY3673e7sfRAEiAjZbBbHcbaBb9++5cCBA2SzWZLJJLZt43kesViM\nHX379g1d1wnDsNNVEQEgCAIajQZ3797dBi4tLWGaJq7rYpompVKJmZkZ2u12B3j58mWUUmiahoiw\nsbFBEASdD2VsbIwnT55gACil+PHjB7Ozs0xPT/P7929u3ryJZVmEYUgYhhQKBZRSiAie52EYBkop\nLMvi8ePHTE1NUSwWt0OZn5/3hoeHzRs3bqhcLseXL1+YmJjowGzbRtO07RT/F8jO09+8ecP58+dJ\nJBKcPn0abW5uThWLRevOnTv/Li4u8vr1a3p7e9E0jXg8zsePHymVSnz69Kmzr7quY9s2U1NTXLp0\nCc/zOHLkCPv27UPxf6rX63+NjIz8IyKMj48zPT3NwYMHGRwcpLe3FwARodVqcf36dS5evMj4+DhB\nEHDmzBkymQz6DqxSqZDNZr8tLy//DYzdunWL5eVlqtUqHz58IJVKkUwmaTQalMtlLly4gIjw/Plz\nTp06RT6fZ2Njg/8AqMV7tO07rnsAAAAASUVORK5CYII=",
         parameters => [
             { type => "string", desc => "Forced language to use in searches (Japanese won't work due to EH limitations)" },
-            { type => "bool",   desc => "Save archive title" },
             { type => "bool",   desc => "Fetch using thumbnail first (falls back to title)" },
             { type => "bool",   desc => "Search using gID from title (falls back to title)" },
             { type => "bool",   desc => "Use ExHentai (enable to search for fjorded content without star cookie)" },
@@ -52,10 +54,12 @@ sub plugin_info {
 #Mandatory function to be implemented by your plugin
 sub get_tags {
 
+    no warnings 'experimental::try';
+
     shift;
-    my $lrr_info = shift;                     # Global info hash
+    my $lrr_info = shift;                                                                               # Global info hash
     my $ua       = $lrr_info->{user_agent};
-    my ( $lang, $savetitle, $usethumbs, $search_gid, $enablepanda, $jpntitle, $additionaltags, $expunged ) = @_; # Plugin parameters
+    my ( $lang, $usethumbs, $search_gid, $enablepanda, $jpntitle, $additionaltags, $expunged ) = @_;    # Plugin parameters
 
     # Use the logger to output status - they'll be passed to a specialized logfile and written to STDOUT.
     my $logger = get_plugin_logger();
@@ -71,7 +75,7 @@ sub get_tags {
         $gID    = $1;
         $gToken = $2;
         $logger->debug("Skipping search and using gallery $gID / $gToken from oneshot args");
-    } elsif ( $lrr_info->{existing_tags} =~ /.*source:\s*e(?:x|-)hentai\.org\/g\/([0-9]*)\/([0-z]*)\/*.*/gi ) {
+    } elsif ( $lrr_info->{existing_tags} =~ /.*source:\s*(?:https?:\/\/)?e(?:x|-)hentai\.org\/g\/([0-9]*)\/([0-z]*)\/*.*/gi ) {
         $gID    = $1;
         $gToken = $2;
         $hasSrc = 1;
@@ -79,26 +83,23 @@ sub get_tags {
     } else {
 
         # Craft URL for Text Search on EH if there's no user argument
-        ( $gID, $gToken ) = &lookup_gallery(
-            $lrr_info->{archive_title},
-            $lrr_info->{existing_tags},
-            $lrr_info->{thumbnail_hash},
-            $ua, $domain, $lang, $usethumbs, $search_gid, $expunged
-        );
+        try {
+            ( $gID, $gToken ) = &lookup_gallery(
+                $lrr_info->{archive_title},
+                $lrr_info->{existing_tags},
+                $lrr_info->{thumbnail_hash},
+                $ua, $domain, $lang, $usethumbs, $search_gid, $expunged
+            );
+        } catch ($e) {
+            $logger->error($e);
+            die $e;
+        }
     }
 
-    # If an error occured, return a hash containing an error message.
-    # LRR will display that error to the client.
-    # Using the GToken to store error codes - not the cleanest but it's convenient
     if ( $gID eq "" ) {
-
-        if ( $gToken ne "" ) {
-            $logger->error($gToken);
-            return ( error => $gToken );
-        }
-
-        $logger->info("No matching EH Gallery Found!");
-        return ( error => "No matching EH Gallery Found!" );
+        my $message = "No matching EH Gallery Found!";
+        $logger->info($message);
+        die "${message}\n";
     } else {
         $logger->debug("EH API Tokens are $gID / $gToken");
     }
@@ -110,7 +111,7 @@ sub get_tags {
     if ( $hashdata{tags} ne "" ) {
 
         if ( !$hasSrc ) { $hashdata{tags} .= ", source:" . ( split( '://', $domain ) )[1] . "/g/$gID/$gToken"; }
-        if ($savetitle) { $hashdata{title} = $ehtitle; }
+        $hashdata{title} = $ehtitle;
     }
 
     #Return a hash containing the new metadata - it will be integrated in LRR.
@@ -121,9 +122,8 @@ sub get_tags {
 ## EH Specific Methods
 ######
 
-sub lookup_gallery {
+sub lookup_gallery ( $title, $tags, $thumbhash, $ua, $domain, $defaultlanguage, $usethumbs, $search_gid, $expunged ) {
 
-    my ( $title, $tags, $thumbhash, $ua, $domain, $defaultlanguage, $usethumbs, $search_gid, $expunged ) = @_;
     my $logger = get_plugin_logger();
     my $URL    = "";
 
@@ -186,35 +186,25 @@ sub lookup_gallery {
     return &ehentai_parse( $URL, $ua );
 }
 
-# ehentai_parse(URL, UA)
 # Performs a remote search on e- or exhentai, and returns the ID/token matching the found gallery.
-sub ehentai_parse() {
-
-    my ( $url, $ua ) = @_;
+sub ehentai_parse ( $url, $ua ) {
 
     my $logger = get_plugin_logger();
+    my $dom    = search_gallery( $url, $ua );
 
-    my ( $dom, $error ) = search_gallery( $url, $ua );
-    if ($error) {
-        return ( "", $error );
+    # Get the first row of the search results
+    # The "glink" class is parented by a <a> tag containing the gallery link in href.
+    # This works in Minimal, Minimal+ and Compact modes, which should be enough.
+    my $glink_element = $dom->at(".glink");
+    if (!$glink_element) {
+        $logger->debug("No gallery found in search results");
+        return ("", "");
     }
+    my $firstgal = $glink_element->parent->attr('href');
 
-    my $gID    = "";
-    my $gToken = "";
-
-    eval {
-        # Get the first row of the search results
-        # The "glink" class is parented by a <a> tag containing the gallery link in href.
-        # This works in Minimal, Minimal+ and Compact modes, which should be enough.
-        my $firstgal = $dom->at(".glink")->parent->attr('href');
-
-        # A EH link looks like xhentai.org/g/{gallery id}/{gallery token}
-        my $url    = ( split( 'hentai.org/g/', $firstgal ) )[1];
-        my @values = ( split( '/',             $url ) );
-
-        $gID    = $values[0];
-        $gToken = $values[1];
-    };
+    # A EH link looks like xhentai.org/g/{gallery id}/{gallery token}
+    $url = ( split( 'hentai.org/g/', $firstgal ) )[1];
+    my ( $gID, $gToken ) = ( split( '/', $url ) );
 
     if ( index( $dom->to_string, "You are opening" ) != -1 ) {
         my $rand = 15 + int( rand( 51 - 15 ) );
@@ -226,35 +216,28 @@ sub ehentai_parse() {
     return ( $gID, $gToken );
 }
 
-sub search_gallery {
+sub search_gallery ( $url, $ua ) {
 
-    my ( $url, $ua ) = @_;
     my $logger = get_plugin_logger();
 
     my $res = $ua->max_redirects(5)->get($url)->result;
 
     if ( index( $res->body, "Your IP address has been" ) != -1 ) {
-        return ( "", "Temporarily banned from EH for excessive pageloads." );
+        die "Temporarily banned from EH for excessive pageloads.\n";
     }
 
-    return ( $res->dom, undef );
+    return $res->dom;
 }
 
 # get_tags_from_EH(userAgent, gID, gToken, jpntitle, additionaltags)
 # Executes an e-hentai API request with the given JSON and returns tags and title.
-sub get_tags_from_EH {
+sub get_tags_from_EH ( $ua, $gID, $gToken, $jpntitle, $additionaltags ) {
 
-    my ( $ua, $gID, $gToken, $jpntitle, $additionaltags ) = @_;
     my $uri = 'https://api.e-hentai.org/api.php';
 
     my $logger = get_plugin_logger();
 
     my $jsonresponse = get_json_from_EH( $ua, $gID, $gToken );
-
-    #if an error occurs(no response) return empty strings.
-    if ( !$jsonresponse ) {
-        return ( "", "" );
-    }
 
     my $data    = $jsonresponse->{"gmetadata"};
     my @tags    = @{ @$data[0]->{"tags"} };
@@ -281,9 +264,8 @@ sub get_tags_from_EH {
     return ( $ehtags, $ehtitle );
 }
 
-sub get_json_from_EH {
+sub get_json_from_EH ( $ua, $gID, $gToken ) {
 
-    my ( $ua, $gID, $gToken ) = @_;
     my $uri = 'https://api.e-hentai.org/api.php';
 
     my $logger = get_plugin_logger();
@@ -302,7 +284,8 @@ sub get_json_from_EH {
 
     my $jsonresponse = $rep->json;
     if ( exists $jsonresponse->{"error"} ) {
-        return;
+        $logger->error( $jsonresponse->{"error"} );
+        die "E-H API returned an error.\n";
     }
 
     return $jsonresponse;

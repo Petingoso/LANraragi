@@ -13,14 +13,14 @@ img {
     font-family: 'Inter UI';
     font-style: normal;
     font-weight: 400;
-    src: local('Inter'), local('Inter'), url(../css/webfonts/Inter-Regular.woff) format('woff');
+    src: url(../css/webfonts/Inter-Regular.woff) format('woff');
 }
 
 @font-face {
     font-family: 'Inter UI';
     font-style: normal;
     font-weight: 700;
-    src: local('Inter'), local('Inter-Bold'), url(../css/webfonts/Inter-Bold.woff) format('woff');
+    src: url(../css/webfonts/Inter-Bold.woff) format('woff');
 }
 
 body {
@@ -199,6 +199,18 @@ table.itg th {
 
 .caption-tags>*>*>h2 {
     color: #34495E !important;
+}
+
+.caption-tags>*>*>span {
+    color: #34495E !important;
+}
+
+#archive-categories .gt a {
+    color: #E1E7E9;
+}
+
+#archive-categories .gt a:hover {
+    color: #ed2553;
 }
 
 .tippy-arrow {

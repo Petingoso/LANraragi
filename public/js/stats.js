@@ -7,7 +7,7 @@ Stats.initializeAll = function () {
     // bind events to DOM
     $(document).on("click.goback", "#goback", () => { window.location.replace("./"); });
 
-    Server.callAPI("/api/database/stats?minweight=2", "GET", null, "Couldn't load tag statistics",
+    Server.callAPI("/api/database/stats?minweight=2", "GET", null, I18N.TagStatsLoadFailure ,
         (data) => {
             $("#statsLoading").hide();
             $("#tagcount").html(data.length);
@@ -21,6 +21,9 @@ Stats.initializeAll = function () {
             // Buildup detailed stats
             const tagList = $("#tagList");
             data.forEach((tag) => {
+                // Ignore tags that start with "source:" or "date_added:"
+                if (tag.namespace === 'source' || tag.namespace === 'date_added')
+                    return;
                 const namespacedTag = LRR.buildNamespacedTag(tag.namespace, tag.text);
                 const url = LRR.getTagSearchURL(tag.namespace, tag.text);
 

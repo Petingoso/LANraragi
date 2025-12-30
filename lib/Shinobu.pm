@@ -5,7 +5,6 @@ package Shinobu;
 #  My main tasks are:
 #
 #    Tracking all files in the content folder and making sure they're sync'ed with the database
-#    Automatically cleaning the temporary folder when it reaches a certain size
 #
 
 use strict;
@@ -15,29 +14,33 @@ use feature qw(say signatures);
 no warnings 'experimental::signatures';
 
 use FindBin;
-use Parallel::Loops;
+use MCE::Loop;
 use Sys::CpuAffinity;
-use Storable qw(lock_store);
+use Storable   qw(lock_store);
 use Mojo::JSON qw(to_json);
+use Config;
 
 #As this is a new process, reloading the LRR libs into INC is needed.
 BEGIN { unshift @INC, "$FindBin::Bin/../lib"; }
 
 use Mojolicious;    # Needed by Model::Config to read the Redis address/port.
 use File::ChangeNotify;
-use File::Find;
 use File::Basename;
 use Encode;
 
-use LANraragi::Utils::Database qw(redis_encode invalidate_cache compute_id);
-use LANraragi::Utils::TempFolder qw(get_temp clean_temp_partial);
-use LANraragi::Utils::Logging qw(get_logger);
-use LANraragi::Utils::Generic qw(is_archive split_workload_by_cpu);
+use LANraragi::Utils::Archive    qw(extract_thumbnail);
+use LANraragi::Utils::Database   qw(invalidate_cache compute_id change_archive_id get_arcsize add_timestamp_tag add_archive_to_redis add_arcsize add_pagecount);
+use LANraragi::Utils::Logging    qw(get_logger);
+use LANraragi::Utils::Generic    qw(is_archive);
+use LANraragi::Utils::Redis      qw(redis_encode);
+use LANraragi::Utils::Path       qw(create_path open_path find_path get_archive_path);
 
 use LANraragi::Model::Config;
 use LANraragi::Model::Plugins;
 use LANraragi::Utils::Plugins;    # Needed here since Shinobu doesn't inherit from the main LRR package
 use LANraragi::Model::Search;     # idem
+
+use constant IS_UNIX => ( $Config{osname} ne 'MSWin32' );
 
 # Logger and Database objects
 my $logger = get_logger( "Shinobu", "shinobu" );
@@ -45,8 +48,9 @@ my $logger = get_logger( "Shinobu", "shinobu" );
 #Subroutine for new and deleted files that takes inotify events
 my $inotifysub = sub {
     my $e    = shift;
-    my $name = $e->path;
+    my $name = create_path( $e->path );
     my $type = $e->type;
+
     $logger->debug("Received inotify event $type on $name");
 
     if ( $type eq "create" || $type eq "modify" ) {
@@ -72,33 +76,33 @@ sub initialize_from_new_process {
     # Add watcher to content directory
     my $contentwatcher = File::ChangeNotify->instantiate_watcher(
         directories     => [$userdir],
-        filter          => qr/\.(?:zip|rar|7z|tar|tar\.gz|lzma|xz|cbz|cbr|cb7|cbt|pdf|epub)$/i,
+        filter          => qr/\.(?:zip|rar|7z|tar|tar\.gz|lzma|xz|cbz|cbr|cb7|cbt|pdf|epub|tar\.zst|zst)$/i,
         follow_symlinks => 1,
-        exclude         => [ 'thumb', '.' ],                                                      #excluded subdirs
+        exclude         => [ 'thumb', '.' ],                                                                   #excluded subdirs
     );
 
     my $class = ref($contentwatcher);
     $logger->debug("Watcher class is $class");
 
-    # Add watcher to tempfolder
-    my $tempwatcher = File::ChangeNotify->instantiate_watcher( directories => [ get_temp() ] );
-
     # manual event loop
     $logger->info("All done! Now dutifully watching your files. ");
 
-    while (1) {
+    my $running = 1;
+
+    while ($running) {
+        local $SIG{INT} = sub { $running = 0 };
 
         # Check events on files
         for my $event ( $contentwatcher->new_events ) {
             $inotifysub->($event);
         }
 
-        # Check the current temp folder size and clean it if necessary
-        for my $event ( $tempwatcher->new_events ) {
-            clean_temp_partial();
-        }
+        sleep 1;
+    }
 
-        sleep 2;
+    if ( !IS_UNIX ) {
+        # Cleanly shutdown filewatcher
+        $contentwatcher->dispose;
     }
 }
 
@@ -114,14 +118,12 @@ sub update_filemap {
     my @files;
 
     # Get all files in content directory and subdirectories.
-    find(
-        {   wanted => sub {
-                return if -d $_;    #Directories are excluded on the spot
-                return unless is_archive($_);
-                push @files, $_;    #Push files to array
-            },
-            no_chdir    => 1,
-            follow_fast => 1
+    find_path(
+        sub {
+            $_ = create_path($_);
+            return if -d $_;    #Directories are excluded on the spot
+            return unless is_archive($_);
+            push @files, $_;    #Push files to array
         },
         $dirname
     );
@@ -146,31 +148,17 @@ sub update_filemap {
 
     $redis->quit();
 
-    # Now that we have all new files, process them...with multithreading!
-    my $numCpus = Sys::CpuAffinity::getNumCpus();
-    my $pl      = Parallel::Loops->new($numCpus);
-
-    $logger->debug("Number of available cores for processing: $numCpus");
-    my @sections = split_workload_by_cpu( $numCpus, @newfiles );
-
-    # Eval the parallelized file crawl to avoid taking down the entire process in case one of the forked processes dies
     eval {
-        $pl->foreach(
-            \@sections,
-            sub {
-                my $redis = LANraragi::Model::Config->get_redis_config;
-                foreach my $file (@$_) {
-
-                    # Individual files are also eval'd so we can keep scanning
-                    eval { add_to_filemap( $redis, $file ); };
-
-                    if ($@) {
-                        $logger->error("Error scanning $file: $@");
-                    }
-                }
-                $redis->quit();
-            }
-        );
+        if ( IS_UNIX ) {
+            # Now that we have all new files, process them...with multithreading!
+            mce_loop {
+                add_new_files(@{ $_ });
+            } \@newfiles;
+            MCE::Loop->finish;
+        } else {
+            # libarchive does not support threading on Windows
+            add_new_files(@newfiles);
+        }
     };
 
     if ($@) {
@@ -189,7 +177,7 @@ sub add_to_filemap ( $redis_cfg, $file ) {
         #We have to wait before doing any form of calculation.
         while (1) {
             last unless -e $file;    # Sanity check to avoid sticking in this loop if the file disappears
-            last if open( my $handle, '<', $file );
+            last if open_path( my $handle, '<', $file );
             $logger->debug("Waiting for file to be openable");
             sleep(1);
         }
@@ -226,7 +214,7 @@ sub add_to_filemap ( $redis_cfg, $file ) {
                 $logger->debug("$file has a different ID than the one in the filemap! ($filemap_id)");
                 $logger->info("$file has been modified, updating its ID from $filemap_id to $id.");
 
-                LANraragi::Utils::Database::change_archive_id( $filemap_id, $id );
+                change_archive_id( $filemap_id, $id );
 
                 # Don't forget to update the filemap, later operations will behave incorrectly otherwise
                 $redis_cfg->hset( "LRR_FILEMAP", $file, $id );
@@ -245,7 +233,7 @@ sub add_to_filemap ( $redis_cfg, $file ) {
         # Filename sanity check
         if ( $redis_arc->exists($id) ) {
 
-            my $filecheck = $redis_arc->hget( $id, "file" );
+            my $filecheck = get_archive_path( $redis_arc, $id );
 
             #Update the real file path and title if they differ from the saved one
             #This is meant to always track the current filename for the OS.
@@ -260,15 +248,15 @@ sub add_to_filemap ( $redis_cfg, $file ) {
                 invalidate_cache();
             }
 
-            unless ( LANraragi::Utils::Database::get_arcsize( $redis_arc, $id ) ) {
+            unless ( get_arcsize( $redis_arc, $id ) ) {
                 $logger->debug("arcsize is not set for $id, storing now!");
-                LANraragi::Utils::Database::add_arcsize( $redis_arc, $id );
+                add_arcsize( $redis_arc, $id );
             }
 
             # Set pagecount in case it's not already there
             unless ( $redis_arc->hget( $id, "pagecount" ) ) {
                 $logger->debug("Pagecount not calculated for $id, doing it now!");
-                LANraragi::Utils::Database::add_pagecount( $redis_arc, $id );
+                add_pagecount( $redis_arc, $id );
             }
 
         } else {
@@ -285,7 +273,7 @@ sub add_to_filemap ( $redis_cfg, $file ) {
 
 # Only handle new files. As per the ChangeNotify doc, it
 # "handles the addition of new subdirectories by adding them to the watch list"
-sub new_file_callback($name) {
+sub new_file_callback ($name) {
 
     $logger->debug("New file detected: $name");
     unless ( -d $name ) {
@@ -302,7 +290,7 @@ sub new_file_callback($name) {
 
 # Deleted files are simply dropped from the filemap.
 # Deleted subdirectories trigger deleted events for every file deleted.
-sub deleted_file_callback($name) {
+sub deleted_file_callback ($name) {
 
     $logger->info("$name was deleted from the content folder!");
     unless ( -d $name ) {
@@ -318,17 +306,40 @@ sub deleted_file_callback($name) {
     }
 }
 
+sub add_new_files (@files) {
+    my $redis = LANraragi::Model::Config->get_redis_config;
+
+    foreach my $file (@files) {
+        $logger->debug("Processing $file");
+
+        # Individual files are also eval'd so we can keep scanning
+        eval { add_to_filemap( $redis, $file ); };
+
+        if ($@) {
+            $logger->error("Error scanning $file: $@");
+        }
+    }
+
+    $redis->quit();
+}
+
+
 sub add_new_file ( $id, $file ) {
 
-    my $redis = LANraragi::Model::Config->get_redis;
+    my $redis        = LANraragi::Model::Config->get_redis;
+    my $redis_search = LANraragi::Model::Config->get_redis_search;
     $logger->info("Adding new file $file with ID $id");
 
     eval {
-        LANraragi::Utils::Database::add_archive_to_redis( $id, $file, $redis );
-        LANraragi::Utils::Database::add_timestamp_tag( $redis, $id );
-        LANraragi::Utils::Database::add_pagecount( $redis, $id );
+        add_archive_to_redis( $id, $file, $redis, $redis_search );
+        add_timestamp_tag( $redis, $id );
+        add_pagecount( $redis, $id );
 
-        #AutoTagging using enabled plugins goes here!
+        # Generate thumbnail
+        my $thumbdir = LANraragi::Model::Config->get_thumbdir;
+        extract_thumbnail( $thumbdir, $id, 1, 1, 1 );
+
+        # AutoTagging using enabled plugins goes here!
         LANraragi::Model::Plugins::exec_enabled_plugins_on_file($id);
     };
 
@@ -336,6 +347,7 @@ sub add_new_file ( $id, $file ) {
         $logger->error("Error while adding file: $@");
     }
     $redis->quit;
+    $redis_search->quit;
 }
 
 __PACKAGE__->initialize_from_new_process unless caller;

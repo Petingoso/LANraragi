@@ -3,7 +3,6 @@ package LANraragi::Utils::String;
 use strict;
 use warnings;
 use utf8;
-use feature "switch";
 no warnings 'experimental';
 use feature qw(signatures);
 
@@ -13,7 +12,7 @@ use Exporter 'import';
 our @EXPORT_OK = qw(clean_title trim trim_CRLF trim_url most_similar);
 
 # Remove "junk" from titles, turning something like "(c12) [poop (butt)] hardcore handholding [monogolian] [recensored]" into "hardcore handholding"
-sub clean_title($title) {
+sub clean_title ($title) {
     $title = trim($title);
 
     # Remove leading "(c12)"
@@ -29,19 +28,27 @@ sub clean_title($title) {
 }
 
 # Remove spaces before and after a word
-sub trim($s) {
+sub trim ($s) {
+    
+    unless ( defined $s ) {
+        return "";
+    }
+
     $s =~ s/^\s+|\s+$//g;
     return $s;
 }
 
 # Remove all newlines in a string
-sub trim_CRLF($s) {
-    $s =~ s/\R//g;
-    return $s;
+sub trim_CRLF ($s) {
+    if (defined($s)) {
+        $s =~ s/\R//g;
+        return $s;
+    }
+    return;
 }
 
 # Fixes up a URL string for use in the DL system.
-sub trim_url($url) {
+sub trim_url ($url) {
 
     $url = trim($url);
 

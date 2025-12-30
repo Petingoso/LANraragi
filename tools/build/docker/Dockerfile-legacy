@@ -1,6 +1,7 @@
 # DOCKER-VERSION 0.3.4
 FROM        alpine:3.12.12
 LABEL       git="https://github.com/Difegue/LANraragi"
+ARG INSTALL_PARAMETER
 
 ENV S6_KEEP_ENV 1
 
@@ -15,7 +16,7 @@ ENTRYPOINT ["/init"]
 
 # Check application health
 HEALTHCHECK --interval=1m --timeout=10s --retries=3 \
-  CMD wget --quiet --tries=1 --no-check-certificate --spider \
+  CMD wget --quiet --tries=1 --no-check-certificate --spider -Y off \
   http://localhost:3000 || exit 1
 
 #Default mojo server port
@@ -53,15 +54,17 @@ WORKDIR /home/koyomi/lanraragi
 #This allows for Docker cache to preserve cpan dependencies
 COPY --chown=koyomi:koyomi /tools/cpanfile /tools/install.pl /tools/build/docker/install-everything.sh tools/
 COPY --chown=koyomi:koyomi /package.json package.json
+COPY --chown=koyomi:koyomi /package-lock.json package-lock.json
 
 # Run the install script as root
-RUN sh ./tools/install-everything.sh
+RUN sh ./tools/install-everything.sh $INSTALL_PARAMETER
 
 #Copy remaining LRR files from context
 COPY --chown=koyomi:koyomi /lib lib
 COPY --chown=koyomi:koyomi /public public
 COPY --chown=koyomi:koyomi /script script
 COPY --chown=koyomi:koyomi /templates templates
+COPY --chown=koyomi:koyomi /locales locales
 COPY --chown=koyomi:koyomi /tests tests
 COPY --chown=koyomi:koyomi /lrr.conf lrr.conf
 COPY --chown=koyomi:koyomi /tools/build/docker/redis.conf tools/build/docker/
@@ -72,4 +75,5 @@ COPY /tools/build/docker/s6/legacy-services.d/ /etc/services.d/
 
 # Persistent volumes
 VOLUME [ "/home/koyomi/lanraragi/content" ]
+VOLUME [ "/home/koyomi/lanraragi/thumb" ]
 VOLUME [ "/home/koyomi/lanraragi/database"]

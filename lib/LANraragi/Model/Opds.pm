@@ -5,26 +5,30 @@ use warnings;
 use utf8;
 
 use Redis;
-use POSIX qw(strftime);
+use POSIX      qw(strftime);
 use Mojo::Util qw(xml_escape);
 
-use LANraragi::Utils::Generic qw(get_tag_with_namespace);
-use LANraragi::Utils::Archive qw(get_filelist);
-use LANraragi::Utils::Database qw(get_archive_json );
+use LANraragi::Utils::Generic  qw(get_tag_with_namespace);
+use LANraragi::Utils::Archive  qw(get_filelist);
+use LANraragi::Utils::Database qw(get_archive_json);
+use LANraragi::Utils::Path     qw(get_archive_path);
+
 use LANraragi::Model::Category;
 use LANraragi::Model::Search;
 
 sub generate_opds_catalog {
 
-    my $mojo = shift;
+    my $mojo   = shift;
     my $cat_id = $mojo->req->param('category') || "";
+    my $start  = $mojo->req->param('start')    || 0;
 
     # If the user authentified to this via an API key, we need to carry it over to the OPDS links.
     my $api_key = $mojo->req->param('key');
     my @cats    = LANraragi::Model::Category->get_category_list;
 
     # Use the search engine to get the list of archives to show in the catalog.
-    my ( $total, $filtered, @keys ) = LANraragi::Model::Search::do_search( "", $cat_id, -1, "title", 0, 0, 0 );
+    # TODO Add tankgroup support to opds?
+    my ( $total, $filtered, @keys ) = LANraragi::Model::Search::do_search( "", $cat_id, $start, "title", 0, 0, 0, 0 );
 
     my @list = ();
 
@@ -34,6 +38,8 @@ sub generate_opds_catalog {
     }
 
     foreach my $cat (@cats) {
+
+        for ( values %{$cat} ) { $_ = xml_escape($_); }
 
         # If the category doesn't have a search string, we can add the total count of archives to the entry.
         if ( $cat->{search} eq "" ) {
@@ -54,10 +60,11 @@ sub generate_opds_catalog {
         arclist       => \@list,
         catlist       => \@cats,
         nocat         => $cat_id eq "",
+        nextpage      => $start + scalar @list,
         title         => $mojo->LRR_CONF->get_htmltitle,
         motd          => $mojo->LRR_CONF->get_motd,
         version       => $mojo->LRR_VERSION,
-        api_key_query => $api_key ? "?key=" . $api_key : "",
+        api_key_query => $api_key ? "?key=" . $api_key     : "",
         api_key_and   => $api_key ? "&amp;key=" . $api_key : ""
     );
 }
@@ -78,7 +85,7 @@ sub generate_opds_item {
         title         => $mojo->LRR_CONF->get_htmltitle,
         motd          => $mojo->LRR_CONF->get_motd,
         version       => $mojo->LRR_VERSION,
-        api_key_query => $api_key ? "?key=" . $api_key : "",
+        api_key_query => $api_key ? "?key=" . $api_key     : "",
         api_key_and   => $api_key ? "&amp;key=" . $api_key : ""
     );
 }
@@ -88,7 +95,7 @@ sub get_opds_data {
     my $id    = shift;
     my $redis = LANraragi::Model::Config->get_redis;
 
-    my $file = $redis->hget( $id, "file" );
+    my $file = get_archive_path( $redis, $id );
     unless ( -e $file ) { return; }
 
     my $arcdata = get_archive_json( $redis, $id );
@@ -117,8 +124,8 @@ sub get_opds_data {
         $arcdata->{mimetype} = "application/x-cbz";
     }
 
-    if ( $arcdata->{lastreadtime} > 0) {
-      $arcdata->{lastreaddate} = strftime( "%Y-%m-%dT%H:%M:%SZ", gmtime($arcdata->{lastreadtime}) );
+    if ( $arcdata->{lastreadtime} > 0 ) {
+        $arcdata->{lastreaddate} = strftime( "%Y-%m-%dT%H:%M:%SZ", gmtime( $arcdata->{lastreadtime} ) );
     }
 
     for ( values %{$arcdata} ) { $_ = xml_escape($_); }
@@ -130,13 +137,11 @@ sub render_archive_page {
 
     my ( $mojo, $id, $page ) = @_;
 
-    my $redis = $mojo->LRR_CONF->get_redis;
-    my $archive = $redis->hget( $id, "file" );
+    my $redis   = $mojo->LRR_CONF->get_redis;
+    my $archive = get_archive_path( $redis, $id );
 
     # Parse archive to get its list of images
-    my ( $images, $sizes ) = get_filelist($archive);
-
-    my @images = @$images;
+    my @images = get_filelist($archive, $id);
 
     # If the page number is invalid, use the first page.
     if ( $page > scalar @images ) {

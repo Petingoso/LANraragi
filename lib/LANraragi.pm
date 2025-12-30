@@ -11,15 +11,20 @@ use Storable;
 use Sys::Hostname;
 use Config;
 
-use LANraragi::Utils::Generic qw(start_shinobu start_minion);
-use LANraragi::Utils::Logging qw(get_logger get_logdir);
-use LANraragi::Utils::Plugins qw(get_plugins);
+use LANraragi::Utils::Generic    qw(start_shinobu start_minion);
+use LANraragi::Utils::Logging    qw(get_logger get_logdir);
+use LANraragi::Utils::Plugins    qw(get_plugins);
 use LANraragi::Utils::TempFolder qw(get_temp);
 use LANraragi::Utils::Routing;
 use LANraragi::Utils::Minion;
+use LANraragi::Utils::I18N;
+use LANraragi::Utils::I18NInitializer;
 
 use LANraragi::Model::Search;
 use LANraragi::Model::Config;
+use LANraragi::Model::Setup qw(first_install_actions);
+
+use constant IS_UNIX => ( $Config{osname} ne 'MSWin32' );
 
 # This method will run once at server start
 sub startup {
@@ -36,8 +41,19 @@ sub startup {
     my $vername = $packagejson->{version_name};
     my $descstr = $packagejson->{description};
 
-    # Use the hostname and osname for a sorta-unique set of secrets.
-    $self->secrets( [ hostname(), $Config{"osname"}, 'oshino' ] );
+    my $secret          = "";
+    my $secretfile_path = get_temp . "/oshino";
+    if ( -e $secretfile_path ) {
+        $secret = Mojo::File->new($secretfile_path)->slurp;
+    } else {
+
+        # Generate a random string as the secret and store it in a file
+        $secret .= sprintf( "%x", rand 16 ) for 1 .. 8;
+        Mojo::File->new($secretfile_path)->spew($secret);
+    }
+
+    # Use the hostname alongside the random secret
+    $self->secrets( [ $secret . hostname() ] );
     $self->plugin('RenderFile');
 
     # Set Template::Toolkit as default renderer so we can use the LRR templates
@@ -61,6 +77,11 @@ sub startup {
         }
     );
 
+    # for some reason I can't call the one under LRR_CONF from the
+    # templates, so create a separate helper here
+    my $prefix = $self->LRR_CONF->get_baseurl();
+    $self->helper( LRR_BASEURL => sub { return $prefix } );
+
     #Check if a Redis server is running on the provided address/port
     eval { $self->LRR_CONF->get_redis->ping(); };
     if ($@) {
@@ -82,6 +103,12 @@ sub startup {
         say "Trying again in 2 seconds...";
         sleep 2;
     }
+
+    # Initialize cache
+    LANraragi::Utils::PageCache::initialize();
+
+    # Load i18n
+    LANraragi::Utils::I18NInitializer::initialize($self);
 
     # Check old settings and migrate them if needed
     if ( $self->LRR_CONF->get_redis->keys('LRR_*') ) {
@@ -135,11 +162,18 @@ sub startup {
     }
 
     # Enable Minion capabilities in the app
-    shutdown_from_pid( get_temp . "/minion.pid" );
+    if ( IS_UNIX ) {
+        shutdown_from_pid( get_temp . "/minion.pid" );
+    }
 
-    my $miniondb = $self->LRR_CONF->get_redisad . "/" . $self->LRR_CONF->get_miniondb;
+    my $miniondb      = $self->LRR_CONF->get_redisad . "/" . $self->LRR_CONF->get_miniondb;
+    my $redispassword = $self->LRR_CONF->get_redispassword;
+
+    # If the password is non-empty, add the required delimiters
+    if ($redispassword) { $redispassword = "x:" . $redispassword . "@"; }
+
     say "Minion will use the Redis database at $miniondb";
-    $self->plugin( 'Minion' => { Redis => "redis://$miniondb" } );
+    $self->plugin( 'Minion' => { Redis => "redis://$redispassword$miniondb" } );
     $self->LRR_LOGGER->info("Successfully connected to Minion database.");
     $self->minion->missing_after(5);    # Clean up older workers after 5 seconds of unavailability
 
@@ -155,15 +189,39 @@ sub startup {
     start_minion($self);
 
     # Start File Watcher
-    shutdown_from_pid( get_temp . "/shinobu.pid" );
+    if ( IS_UNIX ) {
+        shutdown_from_pid( get_temp . "/shinobu.pid" );
+    }
     start_shinobu($self);
+
+    # Check if this is a first-time installation.
+    first_install_actions();
 
     # Hook to SIGTERM to cleanly kill minion+shinobu on server shutdown
     # As this is executed during before_dispatch, this code won't work if you SIGTERM without loading a single page!
     # (https://stackoverflow.com/questions/60814220/how-to-manage-myself-sigint-and-sigterm-signals)
     $self->hook(
         before_dispatch => sub {
-            state $unused = add_sigint_handler();
+            my $c = shift;
+            if ( IS_UNIX ) {
+                state $unused = add_sigint_handler();
+            }
+
+            my $prefix = $self->LRR_BASEURL;
+            if ($prefix) {
+                if ( !$prefix =~ m|^/[^"]*[^/"]$| ) {
+                    say "Warning: configured URL prefix '$prefix' invalid, ignoring";
+
+                    # if prefix is invalid, then set it to empty for the cookie
+                    $prefix = "";
+                } else {
+                    $c->req->url->base->path($prefix);
+                }
+            }
+
+            # SameSite=Lax is the default behavior here; I set it
+            # explicitly to get rid of a warning in the browser
+            $c->cookie( "lrr_baseurl" => $prefix, { samesite => "lax", path => "/" } );
         }
     );
 
@@ -193,7 +251,7 @@ sub add_sigint_handler {
         shutdown_from_pid( get_temp . "/minion.pid" );
 
         \&$old_int;    # Calling the old handler to cleanly exit the server
-      }
+    }
 }
 
 sub migrate_old_settings {

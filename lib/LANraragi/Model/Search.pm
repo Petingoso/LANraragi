@@ -1,5 +1,8 @@
 package LANraragi::Model::Search;
 
+use feature qw(signatures);
+no warnings 'experimental::signatures';
+
 use strict;
 use warnings;
 use utf8;
@@ -8,41 +11,49 @@ use List::Util qw(min);
 use Redis;
 use Storable qw/ nfreeze thaw /;
 use Sort::Naturally;
+use Cpanel::JSON::XS qw(decode_json);
+use Time::HiRes qw(time);
 
-use LANraragi::Utils::Generic qw(split_workload_by_cpu);
-use LANraragi::Utils::String qw(trim);
-use LANraragi::Utils::Database qw(redis_decode redis_encode);
-use LANraragi::Utils::Logging qw(get_logger);
+use LANraragi::Utils::Generic  qw(intersect_arrays);
+use LANraragi::Utils::String   qw(trim);
+use LANraragi::Utils::Redis    qw(redis_decode redis_encode);
+use LANraragi::Utils::Logging  qw(get_logger);
 
 use LANraragi::Model::Archive;
 use LANraragi::Model::Category;
 
 # do_search (filter, category_id, page, key, order, newonly, untaggedonly)
 # Performs a search on the database.
-sub do_search {
-
-    my ( $filter, $category_id, $start, $sortkey, $sortorder, $newonly, $untaggedonly ) = @_;
+sub do_search ( $filter, $category_id, $start, $sortkey, $sortorder, $newonly, $untaggedonly, $grouptanks ) {
 
     my $redis  = LANraragi::Model::Config->get_redis_search;
     my $logger = get_logger( "Search Engine", "lanraragi" );
 
-    unless ( $redis->exists("LAST_JOB_TIME") ) {
+    unless ( $redis->exists("LAST_JOB_TIME") && ( $redis->exists("LRR_TANKGROUPED") || !$grouptanks ) ) {
         $logger->error("Search engine is not initialized yet. Please wait a few seconds.");
+
+        # TODO - This is the only case where the API returns -1, but it's not really handled well clientside at the moment.
         return ( -1, -1, () );
     }
 
-    # Search filter results
-    my $total = $redis->zcard("LRR_TITLES") + 0;    # Total number of archives (as int)
+    my $tankcount = $redis->scard("LRR_TANKGROUPED") + 0;
+
+    # Get tank ids count
+    my $tankidscount = scalar( LANraragi::Model::Config->get_redis->keys('TANK_??????????') );
+
+    # Total number of archives (as int)
+    my $total = $grouptanks ? $tankcount : $redis->zcard("LRR_TITLES") - $tankidscount;
 
     # Look in searchcache first
     my $sortorder_inv = $sortorder ? 0 : 1;
-    my $cachekey      = redis_encode("$category_id-$filter-$sortkey-$sortorder-$newonly-$untaggedonly");
-    my $cachekey_inv  = redis_encode("$category_id-$filter-$sortkey-$sortorder_inv-$newonly-$untaggedonly");
+    my $cachekey      = redis_encode("$category_id-$filter-$sortkey-$sortorder-$newonly-$untaggedonly-$grouptanks");
+    my $cachekey_inv  = redis_encode("$category_id-$filter-$sortkey-$sortorder_inv-$newonly-$untaggedonly-$grouptanks");
     my ( $cachehit, @filtered ) = check_cache( $cachekey, $cachekey_inv );
 
-    unless ($cachehit) {
-        $logger->debug("No cache available, doing a full DB parse.");
-        @filtered = search_uncached( $category_id, $filter, $sortkey, $sortorder, $newonly, $untaggedonly );
+    # Don't use cache for history searches since setting lastreadtime doesn't (and shouldn't) cachebust
+    unless ( $cachehit && $sortkey ne "lastread" ) {
+        $logger->debug("No cache available (or history-sorted search), doing a full DB parse.");
+        @filtered = search_uncached( $category_id, $filter, $sortkey, $sortorder, $newonly, $untaggedonly, $grouptanks );
 
         # Cache this query in the search database
         eval { $redis->hset( "LRR_SEARCHCACHE", $cachekey, nfreeze \@filtered ); };
@@ -62,9 +73,8 @@ sub do_search {
     return ( $total, $#filtered + 1, @filtered[ $start .. $end ] );
 }
 
-sub check_cache {
+sub check_cache ( $cachekey, $cachekey_inv ) {
 
-    my ( $cachekey, $cachekey_inv ) = @_;
     my $redis  = LANraragi::Model::Config->get_redis_search;
     my $logger = get_logger( "Search Cache", "lanraragi" );
 
@@ -94,9 +104,8 @@ sub check_cache {
 }
 
 # Grab all our IDs, then filter them down according to the following filters and tokens' ID groups.
-sub search_uncached {
+sub search_uncached ( $category_id, $filter, $sortkey, $sortorder, $newonly, $untaggedonly, $grouptanks ) {
 
-    my ( $category_id, $filter, $sortkey, $sortorder, $newonly, $untaggedonly ) = @_;
     my $redis    = LANraragi::Model::Config->get_redis_search;
     my $redis_db = LANraragi::Model::Config->get_redis;
     my $logger   = get_logger( "Search Core", "lanraragi" );
@@ -106,16 +115,21 @@ sub search_uncached {
 
     # Prepare array: For each token, we'll have a list of matching archive IDs.
     # We intersect those lists as we proceed to get the final result.
-    # Start with all our IDs.
-    my @filtered = $redis_db->keys('????????????????????????????????????????');
+    my @filtered;
+    if ($grouptanks) {
+
+        # Start with our tank IDs, and all other archive IDs that aren't in tanks
+        @filtered = $redis->smembers("LRR_TANKGROUPED");
+    } else {
+
+        # Start with all our archive IDs. Tank IDs won't be present in this search.
+        @filtered = $redis_db->keys('????????????????????????????????????????');
+    }
 
     # If we're using a category, we'll need to get its source data first.
     my %category = LANraragi::Model::Category::get_category($category_id);
 
     if (%category) {
-
-        # We're using a category! Update its lastused value.
-        $redis->hset( $category_id, "last_used", time() );
 
         # If the category is dynamic, get its search predicate and add it to the tokens.
         # If it's static however, we can use its ID list as the base for our result array.
@@ -156,19 +170,35 @@ sub search_uncached {
 
            # Specific case for pagecount searches
            # You can search for galleries with a specific number of pages with pages:20, or with a page range: pages:>20 pages:<=30.
-            if ( $tag =~ /^pages:(>|<|>=|<=)?(\d+)$/ ) {
-                my $operator  = $1;
-                my $pagecount = $2;
+           # Or you can search for galleries with a specific number of pages read with read:20, or any pages read: read:>0
+            if ( $tag =~ /^(read|pages):(>|<|>=|<=)?(\d+)$/ ) {
+                my $col       = $1;
+                my $operator  = $2;
+                my $pagecount = $3;
 
-                $logger->debug("Searching for IDs with pages $operator $pagecount");
+                $logger->debug("Searching for IDs with $operator $pagecount $col");
 
                 # If no operator is specified, we assume it's an exact match
                 $operator = "=" if !$operator;
 
+                # Change the column based off the tag searched.
+                # "pages" -> "pagecount"
+                # "read" -> "progress"
+                $col = $col eq "pages" ? "pagecount" : "progress";
+
                 # Go through all IDs in @filtered and check if they have the right pagecount
                 # This could be sped up with an index, but it's probably not worth it.
                 foreach my $id (@filtered) {
-                    my $count = $redis_db->hget( $id, "pagecount" );
+
+                    # Tanks don't have a set pagecount property, so they're not included here for now.
+                    # TODO TANKS: Maybe an index would be good actually..
+                    if ( $id =~ /^TANK/ ) {
+                        next;
+                    }
+
+                    # Default to 0 if null.
+                    my $count = $redis_db->hget( $id, $col ) || 0;
+
                     if (   ( $operator eq "=" && $count == $pagecount )
                         || ( $operator eq ">"  && $count > $pagecount )
                         || ( $operator eq ">=" && $count >= $pagecount )
@@ -235,12 +265,17 @@ sub search_uncached {
 
                 # Intersect the new list with the previous ones
                 @filtered = intersect_arrays( \@ids, \@filtered, $isneg );
+
+                if ( scalar @filtered == 0 ) {
+                    $logger->trace("No more results after intersection, halting search.");
+                    last;
+                }
             }
         }
     }
 
-    if ( $#filtered > 0 ) {
-        $logger->debug( "Found " . $#filtered . " results after filtering." );
+    if ( scalar @filtered > 0 ) {
+        $logger->debug( "Found " . scalar @filtered . " results after filtering." );
 
         if ( !$sortkey ) {
             $sortkey = "title";
@@ -278,40 +313,10 @@ sub search_uncached {
     return @filtered;
 }
 
-# intersect_arrays(@array1, @array2, $isneg)
-# Intersect two arrays and return the result. If $isneg is true, return the difference instead.
-sub intersect_arrays {
-
-    my ( $array1, $array2, $isneg ) = @_;
-
-    # If array1 is empty, just return an empty array or the second array if $isneg is true
-    if ( scalar @$array1 == 0 ) {
-        return $isneg ? @$array2 : ();
-    }
-
-    # If array2 is empty, die since this sub shouldn't even be used in that case
-    if ( scalar @$array2 == 0 ) {
-        die "intersect_arrays called with an empty array2";
-    }
-
-    my %hash = map { $_ => 1 } @$array1;
-    my @result;
-
-    if ($isneg) {
-        @result = grep { !exists $hash{$_} } @$array2;
-    } else {
-        @result = grep { exists $hash{$_} } @$array2;
-    }
-
-    return @result;
-}
-
-# compute_search_filter($filter)
 # Transform the search engine syntax into a list of tokens.
 # A token object contains the tag, whether it must be an exact match, and whether it must be absent.
-sub compute_search_filter {
+sub compute_search_filter ($filter) {
 
-    my $filter = shift;
     my $logger = get_logger( "Search Core", "lanraragi" );
     my @tokens = ();
     if ( !$filter ) { $filter = ""; }
@@ -386,35 +391,132 @@ sub compute_search_filter {
         # * or % => *
         $tag =~ s/\%/\*/g;
 
-        push @tokens,
-          { tag     => lc($tag),
-            isneg   => $isneg,
-            isexact => $isexact
-          };
+        if ( $tag ne "" ) {    # Blank tokens shouldn't be added as theyll slow down search
+            push @tokens,
+              { tag     => lc($tag),
+                isneg   => $isneg,
+                isexact => $isexact
+              };
+        }
+
     }
     return @tokens;
 }
 
-sub sort_results {
+sub sort_results ( $sortkey, $sortorder, @filtered ) {
 
-    my ( $sortkey, $sortorder, @filtered ) = @_;
+    my $start_time = time();
     my $redis = LANraragi::Model::Config->get_redis;
+    my $logger = get_logger( "Search Sort", "lanraragi" );
+    my %tmpfilter = ();
+    my @sorted    = ();
 
-    my $re = qr/$sortkey/;
+    # Should there be no IDs requiring sorting, return an empty array directly
+    if (scalar @filtered == 0) {
+        return @sorted;
+    }
 
-   # Map our archives to a hash, where the key is the ID and the value is the first tag we found that matches the sortkey/namespace.
-   # (If no tag, defaults to "zzzz")
-    my %tmpfilter = map { $_ => ( $redis->hget( $_, "tags" ) =~ m/.*${re}:(.*)(\,.*|$)/ ) ? $1 : "zzzz" } @filtered;
+    # Employ Lua scripting to fetch data in bulk, thereby minimizing network request frequency
+    if ( $sortkey eq "lastread" ) {
+        # Prepare a Lua script to retrieve the lastreadtime for all IDs
+        my $script = <<'LUA';
+        local result = {}
+        for i=1,#ARGV do
+            local id = ARGV[i]
+            local value = redis.call('HGET', id, 'lastreadtime')
+            result[i] = {id, value or "0"}
+        end
+        return cjson.encode(result)
+LUA
 
-    my @sorted = map { $_->[0] }                         # Map back to only having the ID
-      sort           { ncmp( $a->[1], $b->[1] ) }        # Sort by the tag
-      map            { [ $_, lc( $tmpfilter{$_} ) ] }    # Map to an array containing the ID and the lowercased tag
-      keys %tmpfilter;                                   # List of IDs
+        # Execute the Lua script
+        my $sha;
+        eval {
+            $sha = $redis->script_load($script);
+            my $total_time = time() - $start_time;
+            $logger->debug("[PERF] lastreadtime Lua script completed in ${total_time}s");
+        };
+        if ($@) {
+            $logger->error("Failed to load Lua script: $@");
+            # Fallback to running individual hget operations for each ID
+            %tmpfilter = map { $_ => $redis->hget( $_, "lastreadtime" ) } @filtered;
+        } else {
+            my $result = $redis->evalsha($sha, 0, @filtered);
+            my $data = eval { decode_json($result) };
+            if ($@) {
+                $logger->error("Failed to decode JSON from Lua script: $@");
+                # Revert to the original methodology
+                %tmpfilter = map { $_ => $redis->hget( $_, "lastreadtime" ) } @filtered;
+            } else {
+                # Convert the results into a hash table
+                foreach my $item (@$data) {
+                    $tmpfilter{$item->[0]} = $item->[1];
+                }
+            }
+        }
+
+        # Sorting remains done in Perl -- Invert sort order for lastreadtime, biggest timestamps come first
+        @sorted = map { $_->[0] }                    # Map back to only having the ID
+          sort { $b->[1] <=> $a->[1] }               # Sort by the timestamp
+          grep { defined $_->[1] && $_->[1] > 0 }    # Remove nil timestamps
+          map  { [ $_, $tmpfilter{$_} ] }            # Map to an array containing the ID and the timestamp
+          @filtered;                                 # List of IDs
+    } else {
+        # Prepare a Lua script to retrieve all ID-associated tags
+        my $script = <<'LUA';
+        local result = {}
+        for i=1,#ARGV do
+            local id = ARGV[i]
+            local tags = redis.call('HGET', id, 'tags') or ""
+            result[i] = {id, tags}
+        end
+        return cjson.encode(result)
+LUA
+
+        # Execute the Lua script
+        my $sha;
+        eval {
+            $sha = $redis->script_load($script);
+            my $total_time = time() - $start_time;
+            $logger->debug("[PERF] Tag retrieval Lua script completed in ${total_time}s");
+        };
+        if ($@) {
+            $logger->error("Failed to load Lua script: $@");
+            # Revert to the original methodology
+            my $re = qr/$sortkey/;
+            %tmpfilter = map { $_ => ( $redis->hget( $_, "tags" ) =~ m/.*${re}:(.*?)(\,.*|$)/ ) ? $1 : "zzzz" } @filtered;
+        } else {
+            my $result = $redis->evalsha($sha, 0, @filtered);
+            my $data = eval { decode_json($result) };
+            if ($@) {
+                $logger->error("Failed to decode JSON from Lua script: $@");
+                # Revert to the original methodology
+                my $re = qr/$sortkey/;
+                %tmpfilter = map { $_ => ( $redis->hget( $_, "tags" ) =~ m/.*${re}:(.*?)(\,.*|$)/ ) ? $1 : "zzzz" } @filtered;
+            } else {
+                my $re = qr/$sortkey/;
+                foreach my $item (@$data) {
+                    my $id = $item->[0];
+                    my $tags = $item->[1];
+                    # Find and use the first tag that matches the sortkey/namespace.
+                    # (If no tag, defaults to "zzzz")
+                    $tmpfilter{$id} = ($tags =~ m/.*${re}:(.*?)(\,.*|$)/) ? $1 : "zzzz";
+                }
+            }
+        }
+
+        # Read comments from the bottom up for a better understanding of this sort algorithm.
+        @sorted = map { $_->[0] }                  # Map back to only having the ID
+          sort { ncmp( $a->[1], $b->[1] ) }        # Sort by the tag
+          map  { [ $_, lc( $tmpfilter{$_} ) ] }    # Map to an array containing the ID and the lowercased tag
+          @filtered;                               # List of IDs
+    }
 
     if ($sortorder) {
         @sorted = reverse @sorted;
     }
-
+    my $total_time = time() - $start_time;
+    $logger->debug("[PERF] sort_results completed in ${total_time}s");
     return @sorted;
 }
 

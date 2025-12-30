@@ -3,6 +3,64 @@
  */
 const LRR = {};
 
+function _get_baseurl_cookie() {
+    let cookies = document.cookie;
+    val = cookies.split('; ').find((r) => r.startsWith("lrr_baseurl="))?.split("=")[1];
+    if (val === undefined) {
+        console.warn("lrr_baseurl cookie undefined, must be set by backend");
+        val = "";
+    }
+    return val;
+}
+
+// This class is used to wrap URLs that point into the app, including
+// API endpoints and browser targets. It reads the configured base URL
+// from the template, then prepends it to the provided URL in the
+// toString() method.
+
+// Every operation involving an app-internal URL should be wrapped in
+// this class before use. It can be passed to any API that expects a
+// URL, and can be wrapped around another instance of itself without a
+// change.
+LRR.apiURL = class {
+    static base_url = _get_baseurl_cookie();
+
+    constructor(load_url) {
+        // accept instances of self as well, to make wrapping
+        // idempotent
+        if (load_url instanceof LRR.apiURL) {
+            load_url = load_url.load_url;
+        }
+        this.load_url = load_url;
+        if (!this.load_url.startsWith("/")) {
+            console.trace("passed non-absolute URL to apiURL");
+            this.load_url = "/" + this.load_url;
+        }
+    }
+
+    toString() {
+        // in the default case, this will be empty string and will
+        // leave the load URL unchanged
+        return LRR.apiURL.base_url + this.load_url;
+    }
+};
+
+/**
+ * Helper function to get user logged status based on tt2 userLogged attribute.
+ * @returns true if user is logged in, else false.
+ */
+LRR.isUserLogged = function() {
+    const value = document.body.dataset.userLogged;
+    return value === '1';
+};
+
+/**
+ * @returns true if bookmark icon is linked to a category, else false.
+ */
+LRR.bookmarkLinkConfigured = function () {
+    return localStorage.getItem("bookmarkCategoryId") !== null && localStorage.getItem("bookmarkCategoryId").startsWith("SET_");
+}
+
 /**
  * Quick HTML encoding function.
  * @param {*} r The HTML to encode
@@ -51,7 +109,7 @@ LRR.isNullOrWhitespace = function (input) {
 LRR.getTagSearchURL = function (namespace, tag) {
     const namespacedTag = this.buildNamespacedTag(namespace, tag);
     if (namespace !== "source") {
-        return `/?q=${encodeURIComponent(namespacedTag)}`;
+        return new LRR.apiURL(`/?q=${encodeURIComponent(namespacedTag)}$`);
     } else if (/https?:\/\//.test(tag)) {
         return `${tag}`;
     } else {
@@ -74,6 +132,7 @@ LRR.openInNewTab = function (url) {
  * @returns
  */
 LRR.toggleOverlay = function (selector) {
+    Reader.initializeArchiveOverlay();
     const overlay = $(selector);
     overlay.is(":visible")
         ? LRR.closeOverlay()
@@ -111,7 +170,7 @@ LRR.colorCodeTags = function (tags) {
     if (tags === "") return line;
 
     const tagsByNamespace = LRR.splitTagsByNamespace(tags);
-    const filteredTags = Object.keys(tagsByNamespace).filter((tag) => tag !== "date_added" && tag !== "timestamp");
+    const filteredTags = Object.keys(tagsByNamespace).filter((tag) => ! /^(date|time)/.test(tag));
     let tagsToEncode;
 
     if (filteredTags.length) {
@@ -123,7 +182,7 @@ LRR.colorCodeTags = function (tags) {
     tagsToEncode.sort().forEach((key) => {
         tagsByNamespace[key].forEach((tag) => {
             const encodedK = LRR.encodeHTML(key.toLowerCase());
-            const encodedVal = LRR.encodeHTML(key === "date_added" || key === "timestamp" ? LRR.convertTimestamp(tag) : tag);
+            const encodedVal = LRR.encodeHTML(/^(date|time)/.test(key) ? LRR.convertTimestamp(tag) : tag);
             line += `<span class='${encodedK}-tag'>${encodedVal}</span>, `;
         });
     });
@@ -167,6 +226,15 @@ LRR.splitTagsByNamespace = function (tags) {
 };
 
 /**
+ * Converts tag dictionary into list of tags.
+ * @param {{ [namespace: string]: string[] }} tagsDict Per-namespace dictionary of arrays containing tags under each namespace.
+ * @returns List of tags prefixed with namespace.
+ */
+LRR.buildTagList = function(tagsDict) {
+    return Object.entries(tagsDict).flatMap(([namespace, tagArray]) => tagArray.map(tag => LRR.buildNamespacedTag(namespace, tag)));
+};
+
+/**
  * Builds a caption div containing clickable tags. Namespaces are resolved on the fly.
  * @param {*} tags string containing all tags, split by commas.
  * @returns the div
@@ -180,7 +248,9 @@ LRR.buildTagsDiv = function (tags) {
 
     // Go through resolved namespaces and print tag divs
     Object.keys(tagsByNamespace).sort().forEach((key) => {
-        let ucKey = key.charAt(0).toUpperCase() + key.slice(1);
+        let ucKey = (key === "date_added")
+            ? "Date Added"
+            : key.charAt(0).toUpperCase() + key.slice(1);
         ucKey = LRR.encodeHTML(ucKey);
 
         const encodedK = LRR.encodeHTML(key.toLowerCase());
@@ -190,7 +260,7 @@ LRR.buildTagsDiv = function (tags) {
             const url = LRR.getTagSearchURL(key, tag);
             const searchTag = LRR.buildNamespacedTag(key, tag);
 
-            const tagText = LRR.encodeHTML(key === "date_added" || key === "timestamp" ? LRR.convertTimestamp(tag) : tag);
+            const tagText = LRR.encodeHTML(/^(date|time)/.test(key) ? LRR.convertTimestamp(tag) : tag);
 
             line += `<div class="gt">
                         <a href="${url}" search="${LRR.encodeHTML(searchTag)}">
@@ -207,7 +277,25 @@ LRR.buildTagsDiv = function (tags) {
 };
 
 /**
- * Build a thumbnail div for the given archive data.
+ * Build bookmark icon for an archive.
+ * @param {*} id
+ * @param {*} bookmark_class Either "thumbnail-bookmark-icon" or "title-bookmark-icon".
+ * @returns HTML component string
+ */
+LRR.buildBookmarkIconElement = function (id, bookmark_class) {
+    if ( !LRR.bookmarkLinkConfigured() ) {
+        return "";
+    }
+    const isBookmarked = JSON.parse(localStorage.getItem("bookmarkedArchives") || "[]").includes(id);
+    const bookmarkClass = isBookmarked ? "fas fa-bookmark" : "far fa-bookmark";
+    const disabledClass = LRR.isUserLogged() ? "" : " disabled";
+    const style = !LRR.isUserLogged() ? 'style="opacity: 0.5; cursor: not-allowed;"' : '';
+    return `<i id="${id}" class="${bookmarkClass} ${bookmark_class}${disabledClass}" title="${I18N.ToggleBookmark}" ${style}></i>`;
+};
+
+/**
+ * Build a thumbnail div for the given archive data. Dynamically generates a bookmark icon,
+ * such that the toggleability depends on whether the user is logged in.
  * @param {*} data The archive data
  * @param {boolean} tagTooltip Option to build TagTooltip on mouseover
  * @returns HTML component string
@@ -216,22 +304,27 @@ LRR.buildThumbnailDiv = function (data, tagTooltip = true) {
     const thumbCss = (localStorage.cropthumbs === "true") ? "id3" : "id3 nocrop";
     // The ID can be in a different field depending on the archive object...
     const id = data.arcid || data.id;
+    let reader_url = new LRR.apiURL(`/reader?id=${id}`);
+    const bookmarkIcon = LRR.buildBookmarkIconElement(id, "thumbnail-bookmark-icon");
 
+    // Don't enforce no_fallback=true here, we don't want those divs to trigger Minion jobs
     return `<div class="id1 context-menu swiper-slide" id="${id}">
                 <div class="id2">
-                    ${LRR.buildProgressDiv(data)}
-                    <a href="reader?id=${id}" title="${LRR.encodeHTML(data.title)}">${LRR.encodeHTML(data.title)}</a>
+                    ${LRR.buildStatusDiv(data)}
+                    <a href="${reader_url}" title="${LRR.encodeHTML(data.title)}">${LRR.encodeHTML(data.title)}</a>
                 </div>
                 <div class="${thumbCss}">
-                    <a href="reader?id=${id}" title="${LRR.encodeHTML(data.title)}">
-                        <img style="position:relative;" id="${id}_thumb" src="./img/wait_warmly.jpg"/>
+                    <a href="${reader_url}" title="${LRR.encodeHTML(data.title)}">
+                        <img style="position:relative;" id="${id}_thumb" src="${new LRR.apiURL('/img/wait_warmly.jpg')}"/>
                         <i id="${id}_spinner" class="fa fa-4x fa-cog fa-spin ttspinner"></i>
-                        <img src="./api/archives/${id}/thumbnail" 
-                                onload="$('#${id}_thumb').remove(); $('#${id}_spinner').remove();" 
-                                onerror="this.src='./img/noThumb.png'"/>
+                        <img src="${new LRR.apiURL(`/api/archives/${id}/thumbnail`)}"
+                                onload="$('#${id}_thumb').remove(); $('#${id}_spinner').remove();"
+                                onerror="this.src='${new LRR.apiURL("/img/noThumb.png")}'"/>
                     </a>
+                    ${bookmarkIcon}
                 </div>
                 <div class="id4">
+                        ${LRR.buildPageCountDiv(data)}
                         <span class="tags tag-tooltip" ${tagTooltip === true ? "onmouseover=\"IndexTable.buildTagTooltip(this)\"" : ""}>${LRR.colorCodeTags(data.tags)}</span>
                         ${tagTooltip === true ? `<div class="caption caption-tags" style="display: none;" >${LRR.buildTagsDiv(data.tags)}</div>` : ""}
                 </div>
@@ -239,32 +332,52 @@ LRR.buildThumbnailDiv = function (data, tagTooltip = true) {
 };
 
 /**
- * Show an emoji or a progress number for the given archive data.
+ * Show an emoji for the given archive data.
  * @param {*} arcdata The archive data object
  * @returns HTML string
  */
-LRR.buildProgressDiv = function (arcdata) {
-    const id = arcdata.arcid;
+LRR.buildStatusDiv = function (arcdata) {
     const { isnew } = arcdata;
+    let { progress, pagecount } = LRR.getProgress(arcdata);
+
+    if (isnew === "true") {
+        return "<div class='isnew'>🆕</div>";
+    } else if (pagecount > 0 && (progress / pagecount) > 0.85) { // Consider an archive read if progress is past 85% of total
+        return "<div class='isnew'>👑</div>";
+    }
+    // If there wasn't sufficient data, return an empty string
+    return "";
+};
+
+LRR.buildPageCountDiv = function (arcdata) {
+
+    // TODO - This might evolve with Tanks to show the amount of IDs in the tank with total pagecount on hover
+    let { progress, pagecount } = LRR.getProgress(arcdata);
+    if (pagecount > 0) {
+        return `<div class='isnew'><sup>${progress}/${pagecount}</sup></div>`;
+    }
+    return "";
+};
+
+/**
+ * Get the progress and pagecount for the given archive data, considering localStorage if needed.
+ * @param {*} arcdata The archive data object
+ * @returns progress and pagecount
+ */
+LRR.getProgress = function (arcdata) {
+    const id = arcdata.arcid;
+
     const pagecount = parseInt(arcdata.pagecount || 0, 10);
     let progress = -1;
 
-    if (Index.isProgressLocal) {
+    if (Index.isProgressLocal && !(Index.isProgressAuthenticated && LRR.isUserLogged())) {
         progress = parseInt(localStorage.getItem(`${id}-reader`) || 0, 10);
     } else {
         progress = parseInt(arcdata.progress || 0, 10);
     }
 
-    if (isnew === "true") {
-        return "<div class=\"isnew\">🆕</div>";
-    } else if (pagecount > 0) {
-        // Consider an archive read if progress is past 85% of total
-        if ((progress / pagecount) > 0.85) return "<div class='isnew'>👑</div>";
-        else return `<div class='isnew'><sup>${progress}/${pagecount}</sup></div>`;
-    }
-    // If there wasn't sufficient data, return an empty string
-    return "";
-};
+    return { progress, pagecount };
+}
 
 /**
  * Show a generic error toast with a given header and message.
@@ -293,7 +406,7 @@ LRR.showPopUp = function (c) {
     }
 
     if (c.icon === "warning" && !c.title) {
-        c.title = "This is a destructive operation!";
+        c.title = I18N.ConfirmDestructive;
     }
     return window.Swal.fire(c);
 };
@@ -315,6 +428,14 @@ LRR.getImgSize = function (target) {
         },
     });
     return imgSize;
+};
+
+LRR.getImgSizeAsync = function (target) {
+    return $.ajax({
+        url: target,
+        cache: true,
+        type: "HEAD",
+    });
 };
 
 /**

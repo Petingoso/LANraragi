@@ -3,25 +3,36 @@ package LANraragi::Utils::Generic;
 use strict;
 use warnings;
 use utf8;
-use feature "switch";
+use Cwd 'abs_path';
 no warnings 'experimental';
 
 use Storable qw(store);
 use Digest::SHA qw(sha256_hex);
 use Mojo::Log;
+use Mojo::Util qw(xml_escape);
 use Mojo::IOLoop;
-use Logfile::Rotate;
 use Proc::Simple;
 use Sys::CpuAffinity;
+use Config;
 
 use LANraragi::Utils::TempFolder qw(get_temp);
 use LANraragi::Utils::String qw(trim);
 use LANraragi::Utils::Logging qw(get_logger);
 
+use constant IS_UNIX => ( $Config{osname} ne 'MSWin32' );
+
+BEGIN {
+    if ( !IS_UNIX ) {
+        require Win32::Process;
+        Win32::Process->import( qw(NORMAL_PRIORITY_CLASS) );
+    }
+}
+
 # Generic Utility Functions.
 use Exporter 'import';
-our @EXPORT_OK = qw(is_image is_archive render_api_response get_tag_with_namespace shasum start_shinobu
-  split_workload_by_cpu start_minion get_css_list generate_themes_header flat get_bytelength array_difference);
+our @EXPORT_OK = qw(is_image is_archive render_api_response get_tag_with_namespace shasum_str start_shinobu
+  split_workload_by_cpu start_minion get_css_list generate_themes_header flat get_bytelength array_difference
+  intersect_arrays filter_hash_by_keys exec_with_lock);
 
 # Checks if the provided file is an image.
 # Uses non-capturing groups (?:) to avoid modifying the incoming argument.
@@ -31,7 +42,7 @@ sub is_image {
 
 # Checks if the provided file is an archive.
 sub is_archive {
-    return $_[0] =~ /^.+\.(?:zip|rar|7z|tar|tar\.gz|lzma|xz|cbz|cbr|cb7|cbt|pdf|epub|)$/i;
+    return $_[0] =~ /^.+\.(?:zip|rar|7z|tar|tar\.gz|lzma|xz|cbz|cbr|cb7|cbt|pdf|epub|tar\.zst|zst)$/i;
 }
 
 # Renders the basic success API JSON template.
@@ -43,9 +54,9 @@ sub render_api_response {
     $mojo->render(
         json => {
             operation      => $operation,
-            error          => $failed ? $errormessage : "",
+            error          => $failed ? xml_escape($errormessage) : "",
             success        => $failed ? 0 : 1,
-            successMessage => $failed ? "" : $successMessage,
+            successMessage => $failed ? "" : xml_escape($successMessage),
         },
         status => $failed ? 400 : 200
     );
@@ -92,31 +103,38 @@ sub start_minion {
     my $mojo   = shift;
     my $logger = get_logger( "Minion", "minion" );
 
-    my $numcpus = Sys::CpuAffinity::getNumCpus();
-    $logger->info("Starting new Minion worker in subprocess with $numcpus parallel jobs.");
+    if ( IS_UNIX ) {
+        my $numcpus = Sys::CpuAffinity::getNumCpus();
+        $logger->info("Starting new Minion worker in subprocess with $numcpus parallel jobs.");
 
-    my $worker = $mojo->app->minion->worker;
-    $worker->status->{jobs} = $numcpus;
-    $worker->on( dequeue => sub { pop->once( spawn => \&_spawn ) } );
+        my $worker = $mojo->app->minion->worker;
+        $worker->status->{jobs} = $numcpus;
+        $worker->on( dequeue => sub { pop->once( spawn => \&_spawn ) } );
 
-    # https://github.com/mojolicious/minion/issues/76
-    my $proc = Proc::Simple->new();
-    $proc->start(
-        sub {
-            $logger->info("Minion worker $$ started");
-            $worker->run;
-            $logger->info("Minion worker $$ stopped");
-            return 1;
-        }
-    );
-    $proc->kill_on_destroy(0);
+        # https://github.com/mojolicious/minion/issues/76
+        my $proc = Proc::Simple->new();
+        $proc->start(
+            sub {
+                $logger->info("Minion worker $$ started");
+                $worker->run;
+                $logger->info("Minion worker $$ stopped");
+                return 1;
+            }
+        );
+        $proc->kill_on_destroy(0);
 
-    # Freeze the process object in the PID file
-    store \$proc, get_temp() . "/minion.pid";
-    open( my $fh, ">", get_temp() . "/minion.pid-s6" );
-    print $fh $proc->pid;
-    close($fh);
-    return $proc;
+        # Freeze the process object in the PID file
+        store \$proc, get_temp() . "/minion.pid";
+        open( my $fh, ">", get_temp() . "/minion.pid-s6" );
+        print $fh $proc->pid;
+        close($fh);
+        return $proc;
+    } else {
+        my $proc;
+        Win32::Process::Create($proc, undef, "perl \"" . abs_path(".") ."/lib/Worker.pm\"", 0, NORMAL_PRIORITY_CLASS, ".");
+        $logger->info("Starting new Minion worker with PID " . $proc->GetProcessID() . "." );
+        return $proc;
+    }
 }
 
 sub _spawn {
@@ -129,32 +147,41 @@ sub _spawn {
 # Start Shinobu and return its Proc::Background object.
 sub start_shinobu {
     my $mojo = shift;
+    if ( IS_UNIX ) {
+        my $proc = Proc::Simple->new();
+        $proc->start( $^X, "./lib/Shinobu.pm" );
+        $proc->kill_on_destroy(0);
 
-    my $proc = Proc::Simple->new();
-    $proc->start( $^X, "./lib/Shinobu.pm" );
-    $proc->kill_on_destroy(0);
+        $mojo->LRR_LOGGER->debug( "Shinobu Worker new PID is " . $proc->pid );
 
-    $mojo->LRR_LOGGER->debug( "Shinobu Worker new PID is " . $proc->pid );
-
-    # Freeze the process object in the PID file
-    store \$proc, get_temp() . "/shinobu.pid";
-    open( my $fh, ">", get_temp() . "/shinobu.pid-s6" );
-    print $fh $proc->pid;
-    close($fh);
-    return $proc;
+        # Freeze the process object in the PID file
+        store \$proc, get_temp() . "/shinobu.pid";
+        open( my $fh, ">", get_temp() . "/shinobu.pid-s6" );
+        print $fh $proc->pid;
+        close($fh);
+        return $proc;
+    } else {
+        my $proc;
+        Win32::Process::Create($proc, undef, "perl \"" . abs_path(".") ."/lib/Shinobu.pm\"", 0, NORMAL_PRIORITY_CLASS, ".");
+        open( my $fh, ">", get_temp() . "/shinobu.pid-s6" );
+        print $fh $proc->GetProcessID();
+        close($fh);
+        $mojo->LRR_LOGGER->debug( "Shinobu Worker new PID is " . $proc->GetProcessID() );
+        return $proc;
+    }
 }
 
-#This function gives us a SHA hash for the passed file, which is used for thumbnail reverse search on E-H.
-#First argument is the file, second is the algorithm to use. (1, 224, 256, 384, 512, 512224, or 512256)
+#This function gives us a SHA hash for the passed data, which is used for thumbnail reverse search on E-H.
+#First argument is the data, second is the algorithm to use. (1, 224, 256, 384, 512, 512224, or 512256)
 #E-H only uses SHA-1 hashes.
-sub shasum {
+sub shasum_str {
 
     my $digest = "";
     my $logger = get_logger( "Hash Computation", "lanraragi" );
 
     eval {
         my $ctx = Digest::SHA->new( $_[1] );
-        $ctx->addfile( $_[0] );
+        $ctx->add( $_[0] );
         $digest = $ctx->hexdigest;
     };
 
@@ -195,16 +222,17 @@ sub generate_themes_header {
 
         my $css_file = $css[$i];
         my ( $css_name, $css_color ) = css_default_data($css_file);
+        my $css_url = $self->url_for("/themes/$css_file?$version");
 
         # If this is the default sheet, set it up as so.
         if ( $css[$i] eq LANraragi::Model::Config->get_style ) {
 
-            $html .= qq(<link rel="stylesheet" type="text/css" title="$css_name" href="/themes/$css_file?$version">);
+            $html .= qq(<link rel="stylesheet" type="text/css" title="$css_name" href="$css_url">);
 
             # Add the main color as a them-color meta tag
             $html .= qq(<meta name="theme-color" content="$css_color">);
         } else {
-            $html .= qq(<link rel="alternate stylesheet" type="text/css" title="$css_name" href="/themes/$css_file?$version">);
+            $html .= qq(<link rel="alternate stylesheet" type="text/css" title="$css_name" href="$css_url">);
         }
     }
 
@@ -216,14 +244,12 @@ sub generate_themes_header {
 # Note: CSS files added to the /themes folder will ALWAYS be pickable by the users no matter what.
 # All this sub does is give .css files prettier names in the dropdown. Files without a name here will simply show as their filename to the users.
 sub css_default_data {
-    given ( $_[0] ) {
-        when ("g.css")            { return ( "H-Verse",   "#5F0D1F" ) }
-        when ("modern.css")       { return ( "Hachikuji", "#34353B" ) }
-        when ("modern_clear.css") { return ( "Yotsugi",   "#34495E" ) }
-        when ("modern_red.css")   { return ( "Nadeko",    "#D83B66" ) }
-        when ("ex.css")           { return ( "Sad Panda", "#43464E" ) }
-        default                   { return ( $_[0],       "#34353B" ) }
-    }
+    if ($_[0] eq "g.css")               { return ( "H-Verse",   "#5F0D1F" ) }
+    elsif ($_[0] eq "modern.css")       { return ( "Hachikuji", "#34353B" ) }
+    elsif ($_[0] eq "modern_clear.css") { return ( "Yotsugi",   "#34495E" ) }
+    elsif ($_[0] eq "modern_red.css")   { return ( "Nadeko",    "#D83B66" ) }
+    elsif ($_[0] eq "ex.css")           { return ( "Sad Panda", "#43464E"  )}
+    else { return ( $_[0], "#34353B") }
 }
 
 sub flat {
@@ -252,6 +278,80 @@ sub array_difference {
     }
 
     return @difference;
+}
+
+# intersect_arrays(@array1, @array2, $isneg)
+# Intersect two arrays and return the result. If $isneg is true, return the difference instead.
+sub intersect_arrays {
+
+    my ( $array1, $array2, $isneg ) = @_;
+
+    # If array1 is empty, just return an empty array or the second array if $isneg is true
+    if ( scalar @$array1 == 0 ) {
+        return $isneg ? @$array2 : ();
+    }
+
+    # If array2 is empty, die since this sub shouldn't even be used in that case
+    if ( scalar @$array2 == 0 ) {
+        die "intersect_arrays called with an empty array2";
+    }
+
+    my %hash = map { $_ => 1 } @$array1;
+    my @result;
+
+    if ($isneg) {
+        @result = grep { !exists $hash{$_} } @$array2;
+    } else {
+        @result = grep { exists $hash{$_} } @$array2;
+    }
+
+    return @result;
+}
+
+sub filter_hash_by_keys {
+
+    my ( $allowed_keys, %hash ) = @_;
+
+    # Convert the array of allowed keys into a hash for quick lookup
+    my %allowed_keys_hash = map { $_ => 1 } @$allowed_keys;
+
+    # Iterate over the keys in the hash and delete those not in the allowed keys
+    foreach my $key ( keys %hash ) {
+        delete $hash{$key} unless exists $allowed_keys_hash{$key};
+    }
+
+    return %hash;
+}
+
+# Execute a function under a redis lock context.
+# If the lock cannot be acquired, renders a 423 error and returns false,
+# otherwise executes the function and returns true (or rethrows error if any).
+# Automatically cleans up the lock and connection after execution.
+sub exec_with_lock {
+    my ( $mojo, $redis, $lock_name, $operation, $resource_id, $func ) = @_;
+    my $lock = $redis->set( $lock_name, 1, 'NX', 'EX', 10 );
+    if ( !$lock ) {
+        $redis->quit();
+        $mojo->render(
+            json => {
+                operation => $operation,
+                success   => 0,
+                error     => "Locked resource: $resource_id."
+            },
+            status => 423
+        );
+        return 0;
+    }
+
+    eval {
+        $func->();
+    };
+    my $err = $@;
+    $redis->del( $lock_name );
+    $redis->quit();
+
+    die $err if $err;
+    return 1;
 }
 
 1;

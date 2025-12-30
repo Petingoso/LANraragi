@@ -14,11 +14,11 @@ Those variables were introduced for the Homebrew package, but they can be declar
 
 * `LRR_DATA_DIRECTORY` - Data directory override. If this variable is set to a path, said path will house the content folder.
 * `LRR_THUMB_DIRECTORY` - Thumbnail directory override. If this variable is set to a path, said path will house the generated archive thumbnails.
-* `LRR_TEMP_DIRECTORY` - Temporary directory override. If this variable is set to a path, the temporary folder will be there instead of `/public/temp`.
+* `LRR_TEMP_DIRECTORY` - Temporary directory override. If this variable is set to a path, the temporary folder will be there instead of `/temp`.
 * `LRR_LOG_DIRECTORY` - Log directory override. Changes the location of the `log` folder.
 * `LRR_FORCE_DEBUG` - Debug Mode override. This will force Debug Mode to be enabled regardless of the user setting.
 * `LRR_NETWORK` - Network Interface. See the dedicated page in Advanced Operations.  
-* `LRR_REDIS_ADDRESS` - Redis adress override. This has priority over the `redis_address` specified in `lrr.conf`.  
+* `LRR_REDIS_ADDRESS` - Redis address override. This has priority over the `redis_address` specified in `lrr.conf`.  
 
 ## Coding Style
 
@@ -85,6 +85,12 @@ root/
 |        |- *.pm 
 |        +- Minion.pm <- Minion jobs are implemented here
 |
+|- locales       <- Internationalization/Localization files
+|  +- template    
+|     |- en.po      <- English translations in .po (gettext) format
+|     |- zh.po      <- Chinese translations in .po format
+|     |- ...
+|
 |- log           <- Application Logs end up here
 |
 |- public        <- Files available to Web Clients
@@ -112,12 +118,11 @@ root/
 |  +- *.html.tt2
 |
 |- tools         <- Contains scripts for building and installing LRR.
-|  |- _screenshots  <- Screenshots
 |  |- Documentation <- What you're reading right now
-|  |- build         <- Build tools and scrpits
-|     |- windows          <- Windows build script and submodule link to the Karen WPF Bootstrapper
+|  |- build         <- Build tools and scripts
 |     |- docker           <- Dockerfile and configuration files for LRR Docker Container
 |     |- homebrew         <- Script and configuration files for the LRR Homebrew cask
+|     |- windows          <- MSYS2 Windows build scripts, patches and submodule link to the Karen WPF Bootstrapper
 |  |- cpanfile      <- Perl dependencies description
 |  |- install.pl    <- LANraragi Installer
 |  +- lanraragi-systemd.service <- Example SystemD service
@@ -125,7 +130,8 @@ root/
 |- lrr.conf      <- Mojolicious configuration file
 |- .perltidy.rc  <- PerlTidy config file to match the coding style
 |- .eslintrc.json   <- ESLint config file to match the coding style
-+- package.json  <- NPM file, contains front-end dependency listing and shortcuts
+|- package.json  <- NPM file, contains front-end dependency listing and shortcuts
++- package-lock.json <- NPM lockfile used by installer/`npm ci` for reproducible builds
 ```
 
 ## Shinobu Architecture
@@ -168,16 +174,15 @@ The base architecture is as follows:
 |  |- archives <- Serialized array of IDs this category holds (if static)
 |  |- search <- Search predicate of this category (if dynamic)
 |  |- name <- Name of the Category, as set by the User
-|  |- last_used <- Timestamp of the last time the category was used in a search
 |  |- pinned <- Whether the category is pinned in the index or not
 |
 |- **************************************** <- 40-character long ID for every logged archive
 |  |- tags <- Saved tags
+|  |- summary <- Summary of the archive, as set by the User
 |  |- name <- Name of the archive file, kept for filesystem checks
 |  |- title <- Title of the archive, as set by the User
 |  |- file <- Filesystem path to archive
 |  |- isnew <- Whether the archive has been opened in LRR once or not
-|  |- filesizes <- Size in bytes of each file in the archive, as a serialized JSON array. This value is only present if the archive has been opened once for reading.
 |  |- pagecount <- Number of pages of the archive file
 |  |- progress <- Reading progress, if server-side progress is enabled
 |  +- thumbhash <- SHA-1 hash of the first image of the archive
@@ -209,6 +214,8 @@ The base architecture is as follows:
 |  |- pagesize <- Amount of archives per Index page 
 |  +- apikey <- Key for API requests
 |
+|- LRR_DUPLICATE_GROUPS <- Duplicate groups found by duplicate detection
+|  +- dupgp_xxxxxx <- A group of dupe IDs, as a JSON list
 +- LRR_TAGRULES <- Computed Tag Rules, as a Redis list
 
 

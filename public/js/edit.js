@@ -4,7 +4,7 @@
  */
 const Edit = {};
 
-Edit.tagInput = {};
+Edit.tagInput = null;
 Edit.suggestions = [];
 
 Edit.initializeAll = function () {
@@ -14,15 +14,18 @@ Edit.initializeAll = function () {
     $(document).on("click.run-plugin", "#run-plugin", Edit.runPlugin);
     $(document).on("click.save-metadata", "#save-metadata", Edit.saveMetadata);
     $(document).on("click.delete-archive", "#delete-archive", Edit.deleteArchive);
+    $(document).on("click.read-archive", "#read-archive", () => { window.location.href = new LRR.apiURL(`/reader?id=${$("#archiveID").val()}`); });
     $(document).on("click.tagger", ".tagger", Edit.focusTagInput);
-    $(document).on("click.goback", "#goback", () => { window.location.href = "/"; });
+    $(document).on("click.goback", "#goback", () => { window.location.href = new LRR.apiURL("/"); });
+    $(document).on("paste.tagger", ".tagger-new", Edit.handlePaste);
+    $(document).on("keydown.run-plugin-enter", "#arg", Edit.runPluginByEnter);
 
     Edit.updateOneShotArg();
 
     // Hide tag input while statistics load
     Edit.hideTags();
 
-    Server.callAPI("/api/database/stats?minweight=2", "GET", null, "Couldn't load tag statistics",
+    Server.callAPI("/api/database/stats?minweight=2", "GET", null, I18N.TagStatsLoadFailure,
         (data) => {
             Edit.suggestions = data.reduce((res, tag) => {
                 let label = tag.text;
@@ -46,10 +49,52 @@ Edit.initializeAll = function () {
                     completion: {
                         list: Edit.suggestions,
                     },
-                    link: (name) => `/?q=${name}`,
+                    link: (name) => new LRR.apiURL(`/?q=${name}`),
                 });
             }
         });
+};
+
+// this checks whether the rich-text tag editor is in use (initialized
+// on tagInput); if so, call its method to add the tag; if not, edit
+// the string directly
+Edit.addTag = function (tag) {
+    tag = tag.trim();
+    if (Edit.tagInput) {
+        Edit.tagInput.add_tag(tag);
+    } else {
+        let val = $("#tagText").val().trim();
+        if (val == "") {
+            $("#tagText").val(tag);
+        } else {
+            $("#tagText").val(`${val}, ${tag}`);
+        }
+    }
+};
+
+Edit.handlePaste = function (event) {
+    // Stop data actually being pasted into div
+    event.stopPropagation();
+    event.preventDefault();
+
+    // Get pasted data via clipboard API
+    const pastedData = event.originalEvent.clipboardData.getData("Text");
+
+    if (pastedData !== "") {
+        pastedData.split(/,\s?/).forEach((tag) => {
+            Edit.addTag(tag);
+        });
+    }
+};
+
+/**
+ * Invoke plugin when Enter is pressed in the plugin argument input field.
+ * @param {KeyboardEvent} e - The keyboard event
+ */
+Edit.runPluginByEnter = function (e) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    Edit.runPlugin();
 };
 
 Edit.hideTags = function () {
@@ -74,8 +119,8 @@ Edit.focusTagInput = function () {
 Edit.showHelp = function () {
     LRR.toast({
         toastId: "pluginHelp",
-        heading: "About Plugins",
-        text: "You can use plugins to automatically fetch metadata for this archive. <br/> Just select a plugin from the dropdown and hit Go! <br/> Some plugins might provide an optional argument for you to specify. If that's the case, a textbox will be available to input said argument.",
+        heading: I18N.EditHelpTitle,
+        text: I18N.EditHelp,
         icon: "info",
         hideAfter: 33000,
     });
@@ -104,20 +149,21 @@ Edit.saveMetadata = function () {
     const formData = new FormData();
     formData.append("tags", $("#tagText").val());
     formData.append("title", $("#title").val());
+    formData.append("summary", $("#summary").val());
 
-    return fetch(`api/archives/${id}/metadata`, { method: "PUT", body: formData })
-        .then((response) => (response.ok ? response.json() : { success: 0, error: "Response was not OK" }))
+    return fetch(new LRR.apiURL(`/api/archives/${id}/metadata`), { method: "PUT", body: formData })
+        .then((response) => (response.ok ? response.json() : { success: 0, error: I18N.GenericReponseError }))
         .then((data) => {
             if (data.success) {
                 LRR.toast({
-                    heading: "Metadata saved!",
+                    heading: I18N.EditMetadataSaved,
                     icon: "success",
                 });
             } else {
                 throw new Error(data.message);
             }
         })
-        .catch((error) => LRR.showErrorToast("Error while saving archive data :", error))
+        .catch((error) => LRR.showErrorToast(I18N.EditMetadataError, error))
         .finally(() => {
             Edit.showTags();
         });
@@ -125,11 +171,11 @@ Edit.saveMetadata = function () {
 
 Edit.deleteArchive = function () {
     LRR.showPopUp({
-        text: "Are you sure you want to delete this archive?",
+        text: I18N.ConfirmArchiveDeletion,
         icon: "warning",
         showCancelButton: true,
         focusConfirm: false,
-        confirmButtonText: "Yes, delete it!",
+        confirmButtonText: I18N.ConfirmYes,
         reverseButtons: true,
         confirmButtonColor: "#d33",
     }).then((result) => {
@@ -145,32 +191,39 @@ Edit.getTags = function () {
     const pluginID = $("select#plugin option:checked").val();
     const archivID = $("#archiveID").val();
     const pluginArg = $("#arg").val();
-    Server.callAPI(`../api/plugins/use?plugin=${pluginID}&id=${archivID}&arg=${pluginArg}`, "POST", null, "Error while fetching tags :",
+    Server.callAPI(`/api/plugins/use?plugin=${pluginID}&id=${archivID}&arg=${pluginArg}`, "POST", null, I18N.EditFetchTagError,
         (result) => {
             if (result.data.title && result.data.title !== "") {
                 $("#title").val(result.data.title);
                 LRR.toast({
-                    heading: "Archive title changed to :",
+                    heading: I18N.EditTitleChangedTo,
                     text: result.data.title,
+                    icon: "info",
+                });
+            }
+
+            if (result.data.summary && result.data.summary !=="") {
+                $("#summary").val(result.data.summary);
+                LRR.toast({
+                    heading: I18N.EditSummaryUpdated,
                     icon: "info",
                 });
             }
 
             if (result.data.new_tags !== "") {
                 result.data.new_tags.split(/,\s?/).forEach((tag) => {
-                    // Remove trailing/leading spaces from tag before adding it
-                    Edit.tagInput.add_tag(tag.trim());
+                    Edit.addTag(tag);
                 });
 
                 LRR.toast({
-                    heading: "Added the following tags :",
+                    heading: I18N.EditTagsAdded,
                     text: result.data.new_tags,
                     icon: "info",
                     hideAfter: 7000,
                 });
             } else {
                 LRR.toast({
-                    heading: "No new tags added!",
+                    heading: I18N.EditNoNewTags,
                     text: result.data.new_tags,
                     icon: "info",
                 });
