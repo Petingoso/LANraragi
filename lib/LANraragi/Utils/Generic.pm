@@ -328,7 +328,10 @@ sub filter_hash_by_keys {
 # otherwise executes the function and returns true (or rethrows error if any).
 # Automatically cleans up the lock and connection after execution.
 sub exec_with_lock {
-    my ( $mojo, $redis, $lock_name, $operation, $resource_id, $func ) = @_;
+
+    my ( $mojo, $lock_name, $operation, $resource_id, $func ) = @_;
+    my $redis = LANraragi::Model::Config->get_redis;
+
     my $lock = $redis->set( $lock_name, 1, 'NX', 'EX', 10 );
     if ( !$lock ) {
         $redis->quit();
@@ -343,11 +346,9 @@ sub exec_with_lock {
         return 0;
     }
 
-    eval {
-        $func->();
-    };
+    eval { $func->(); };
     my $err = $@;
-    $redis->del( $lock_name );
+    $redis->del($lock_name);
     $redis->quit();
 
     die $err if $err;
