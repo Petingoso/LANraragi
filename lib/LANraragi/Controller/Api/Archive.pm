@@ -292,7 +292,7 @@ sub add_new {
         $id,
         sub {
             set_isnew( $id, "true" );
-            render_api_response( $self, "add_new", undef, "Cleared 'new' status for archive $id." );
+            render_api_response( $self, "add_new" );
         }
     );
 }

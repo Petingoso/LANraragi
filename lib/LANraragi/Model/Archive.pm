@@ -349,7 +349,6 @@ sub add_toc_entry {
     }
 
     $redis->quit();
-
     return "";
 }
 
@@ -376,7 +375,6 @@ sub remove_toc_entry {
     }
 
     $redis->quit();
-
     return "";
 }
 
