@@ -176,6 +176,14 @@ The base architecture is as follows:
 |  |- name <- Name of the Category, as set by the User
 |  |- pinned <- Whether the category is pinned in the index or not
 |
+|- TANK_xxxxxxxxxx <- A Tankoubon. Tankoubons are Redis sorted sets containing some metadata and a list of Archive IDs.
+|  |- tags (-2) <- Additional tags for the Tankoubon. Tanks collate every tag from the archives they contain by default.
+|  |- summary (-1) <- Dedicated summary for the Tankoubon.
+|  |- name (0) <- Name of the Tankoubon.
+|  |- **************************************** (1) <- First archive in the Tankoubon
+|  |- **************************************** (2) <- Second archive in the Tankoubon
+|  +- etc. (3, 4, 5...) 
+|
 |- **************************************** <- 40-character long ID for every logged archive
 |  |- tags <- Saved tags
 |  |- summary <- Summary of the archive, as set by the User
@@ -216,6 +224,7 @@ The base architecture is as follows:
 |
 |- LRR_DUPLICATE_GROUPS <- Duplicate groups found by duplicate detection
 |  +- dupgp_xxxxxx <- A group of dupe IDs, as a JSON list
+|
 +- LRR_TAGRULES <- Computed Tag Rules, as a Redis list
 
 
