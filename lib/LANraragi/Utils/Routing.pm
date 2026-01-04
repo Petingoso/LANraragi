@@ -144,7 +144,7 @@ sub apply_routes {
     $logged_in_api->put('/api/archives/upload')->to('api-archive#create_archive');
     $logged_in_api->put('/api/archives/:id/thumbnail')->to('api-archive#update_thumbnail');
     $logged_in_api->put('/api/archives/:id/metadata')->to('api-archive#update_metadata');
-    $logged_in_api->put('/api/archives/:id/toc')->to('api-archive#update_toc');
+    $logged_in_api->put('/api/archives/:id/toc')->to('api-archive#add_toc');
     $logged_in_api->delete('/api/archives/:id/toc')->to('api-archive#remove_toc');
     $logged_in_api->delete('/api/archives/:id')->to('api-archive#delete_archive');
 

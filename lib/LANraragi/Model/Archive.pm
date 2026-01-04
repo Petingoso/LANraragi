@@ -9,7 +9,7 @@ use utf8;
 
 use Cwd 'abs_path';
 use Redis;
-use Mojo::JSON qw(decode_json encode_json);
+use Mojo::JSON  qw(decode_json encode_json);
 use Time::HiRes qw(usleep);
 use File::Path  qw(remove_tree);
 use File::Basename;
@@ -322,24 +322,29 @@ sub update_metadata {
     return "";
 }
 
-sub update_toc {
+sub add_toc_entry {
     my ( $id, $page, $title ) = @_;
 
-    my $redis   = LANraragi::Model::Config->get_redis;
-    my $logger = get_logger( "File Serving", "lanraragi" );
-
     unless ( defined $page and defined $title ) {
-        return "Data incomplete";
+        return "Missing page and/or title.";
     }
 
-    my $toc = $redis->hget( $id, "toc" );
+    my $redis = LANraragi::Model::Config->get_redis;
+    my $toc   = $redis->hget( $id, "toc" );
 
-    if ( defined $toc ) {
-        eval { $toc = decode_json( $toc ) };
+    no warnings 'experimental::try';
+    try {
+        $toc          = decode_json($toc);
         $toc->{$page} = $title;
-        $toc = encode_json( $toc );
+        $toc          = encode_json($toc);
         $redis->hset( $id, "toc", $toc );
-    } else {
+    } catch ($e) {
+        $logger->warn(
+            "Error while updating ToC: $e -- Will overwrite with a ToC containing the new data. (This is normal if this ID had no ToC yet.)"
+        );
+        $toc          = {};
+        $toc->{$page} = $title;
+        $toc          = encode_json($toc);
         $redis->hset( $id, "toc", "{}" );
     }
 
@@ -348,25 +353,25 @@ sub update_toc {
     return "";
 }
 
-sub remove_toc {
+sub remove_toc_entry {
     my ( $id, $page ) = @_;
 
-    my $redis   = LANraragi::Model::Config->get_redis;
-    my $logger = get_logger( "File Serving", "lanraragi" );
-
     unless ( defined $page ) {
-        return "Please especify a page to remove";
+        return "Please specify a page to remove";
     }
 
-    my $toc = $redis->hget( $id, "toc" );
+    my $redis  = LANraragi::Model::Config->get_redis;
+    my $logger = get_logger( "Archives", "lanraragi" );
+    my $toc    = $redis->hget( $id, "toc" );
 
-    if ( defined $toc ) {
-        eval { $toc = decode_json( $toc ) };
+    no warnings 'experimental::try';
+    try {
+        $toc = decode_json($toc);
         delete $toc->{$page};
-        $toc = encode_json( $toc );
+        $toc = encode_json($toc);
         $redis->hset( $id, "toc", $toc );
-    } else {
-        $logger->info( "ToC no defined, Creating..." );
+    } catch ($e) {
+        $logger->warn("Error while updating ToC: $e -- Will overwrite with a blank ToC.");
         $redis->hset( $id, "toc", "{}" );
     }
 

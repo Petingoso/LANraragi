@@ -364,35 +364,56 @@ sub update_metadata {
     });
 }
 
-sub update_toc {
+sub add_toc {
     my $self = shift;
-    my $id = check_id_parameter( $self, "update_toc" ) || return;
+    my $id   = check_id_parameter( $self, "add_toc" ) || return;
 
-    my $page = $self->req->param('page');
-    my $title  = $self->req->param('title');
+    my $page  = $self->req->param('page');
+    my $title = $self->req->param('title');
 
-    my $res = LANraragi::Model::Archive::update_toc( $id, $page, $title);
+    my $redis = LANraragi::Model::Config->get_redis;
 
-    if ( $res eq "" ) {
-        render_api_response( $self, "update_toc" );
-    } else {
-        render_api_response( $self, "update_toc", $res );
-    }
+    return unless exec_with_lock(
+        $self, $redis,
+        "archive-write:$id",
+        "add_toc",
+        $id,
+        sub {
+            my $res = LANraragi::Model::Archive::add_toc_entry( $id, $page, $title );
+
+            if ( $res eq "" ) {
+                render_api_response( $self, "add_toc", undef, "Added ToC entry for page $page." );
+            } else {
+                render_api_response( $self, "add_toc", $res );
+            }
+        }
+    );
+
 }
 
 sub remove_toc {
     my $self = shift;
-    my $id = check_id_parameter( $self, "remove_toc" ) || return;
+    my $id   = check_id_parameter( $self, "remove_toc" ) || return;
 
     my $page = $self->req->param('page');
 
-    my $res = LANraragi::Model::Archive::remove_toc( $id, $page);
+    my $redis = LANraragi::Model::Config->get_redis;
 
-    if ( $res eq "" ) {
-        render_api_response( $self, "remove_toc" );
-    } else {
-        render_api_response( $self, "remove_toc", $res );
-    }
+    return unless exec_with_lock(
+        $self, $redis,
+        "archive-write:$id",
+        "remove_toc",
+        $id,
+        sub {
+            my $res = LANraragi::Model::Archive::remove_toc_entry( $id, $page );
+
+            if ( $res eq "" ) {
+                render_api_response( $self, "remove_toc", undef, "Removed ToC entry for page $page." );
+            } else {
+                render_api_response( $self, "remove_toc", $res );
+            }
+        }
+    );
 }
 
 sub update_progress {
