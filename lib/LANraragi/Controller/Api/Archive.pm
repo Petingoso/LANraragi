@@ -277,23 +277,47 @@ sub get_file_list {
     }
 }
 
+sub add_new {
+    my $self = shift;
+    my $id   = check_id_parameter( $self, "add_new" ) || return;
+
+    my $redis = LANraragi::Model::Config->get_redis;
+
+    return unless exec_with_lock(
+        $self, $redis,
+        "archive-write:$id",
+        "clear_new",
+        $id,
+        sub {
+            set_isnew( $id, "true" );
+            render_api_response( $self, "add_new", undef, "Cleared 'new' status for archive $id." );
+        }
+    );
+}
+
 sub clear_new {
     my $self = shift;
     my $id   = check_id_parameter( $self, "clear_new" ) || return;
 
     my $redis = LANraragi::Model::Config->get_redis;
 
-    return unless exec_with_lock( $self, $redis, "archive-write:$id", "clear_new", $id, sub {
-        set_isnew( $id, "false" );
+    return unless exec_with_lock(
+        $self, $redis,
+        "archive-write:$id",
+        "clear_new",
+        $id,
+        sub {
+            set_isnew( $id, "false" );
 
-        $self->render(
-            json => {
-                operation => "clear_new",
-                id        => $id,
-                success   => 1
-            }
-        );
-    });
+            $self->render(
+                json => {
+                    operation => "clear_new",
+                    id        => $id,
+                    success   => 1
+                }
+            );
+        }
+    );
 }
 
 sub delete_archive {
