@@ -430,23 +430,30 @@ sub update_progress {
     # Undocumented parameter to force progress update
     my $force = $self->req->param('force') || 0;
 
+    my $redis     = $self->LRR_CONF->get_redis;
     my $redis_cfg = $self->LRR_CONF->get_redis_config;
     my $pagecount = $redis->hget( $id, "pagecount" );
 
     if ( LANraragi::Model::Config->enable_localprogress && !LANraragi::Model::Config->enable_authprogress ) {
         render_api_response( $self, "update_progress", "Server-side Progress Tracking is disabled on this instance." );
+        $redis->quit();
+        $redis_cfg->quit();
         return;
     }
 
     # This relies on pagecount, so you can't update progress for archives that don't have a valid pagecount recorded yet.
     unless ( $pagecount || $force ) {
         render_api_response( $self, "update_progress", "Archive doesn't have a total page count recorded yet." );
+        $redis->quit();
+        $redis_cfg->quit();
         return;
     }
 
     # Safety-check the given page value.
     unless ( $force || ( looks_like_number($page) && $page > 0 && $page <= $pagecount ) ) {
         render_api_response( $self, "update_progress", "Invalid progress value." );
+        $redis->quit();
+        $redis_cfg->quit();
         return;
     }
 
@@ -456,7 +463,6 @@ sub update_progress {
         "update_progress",
         $id,
         sub {
-            my $redis = $self->LRR_CONF->get_redis;
 
             # Just set the progress value.
             $redis->hset( $id, "progress",     $page );

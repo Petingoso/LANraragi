@@ -329,8 +329,9 @@ sub add_toc_entry {
         return "Missing page and/or title.";
     }
 
-    my $redis = LANraragi::Model::Config->get_redis;
-    my $toc   = $redis->hget( $id, "toc" );
+    my $redis  = LANraragi::Model::Config->get_redis;
+    my $logger = get_logger( "Archives", "lanraragi" );
+    my $toc    = $redis->hget( $id, "toc" );
 
     no warnings 'experimental::try';
     try {

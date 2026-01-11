@@ -30,7 +30,7 @@ use LANraragi::Model::Config;
 use Exporter 'import';
 our @EXPORT_OK = qw(
   invalidate_cache compute_id change_archive_id set_tags set_title set_summary set_isnew get_computed_tagrules save_computed_tagrules get_tankoubons_by_file
-  get_archive get_archive_json get_archive_json_multi get_tags get_arcsize add_arcsize add_pagecount add_timestamp_tag add_archive_to_redis get_toc get_toc_titles 
+  get_archive get_archive_json get_archive_json_multi get_tags get_arcsize add_arcsize add_pagecount add_timestamp_tag add_archive_to_redis get_toc get_toc_titles
   redis_decode redis_encode
 );
 
@@ -139,7 +139,7 @@ sub add_pagecount ( $redis, $id ) {
     my $logger = get_logger( "Archive", "lanraragi" );
 
     my $file   = get_archive_path( $redis, $id );
-    my @images = get_filelist($file, $id);
+    my @images = get_filelist( $file, $id );
     $redis->hset( $id, "pagecount", scalar @images );
 }
 
@@ -618,14 +618,14 @@ sub get_arcsize ( $redis, $id ) {
     return $redis->hget( $id, "arcsize" );
 }
 
-sub get_toc ( $id ) {
+sub get_toc ($id) {
     my $redis = LANraragi::Model::Config->get_redis;
 
     my $toc = $redis->hget( $id, "toc" );
     my %ordered;
 
     if ( defined $toc ) {
-        eval { $toc = decode_json( $toc ) };
+        eval { $toc = decode_json($toc) };
 
         foreach my $name ( sort keys %$toc ) {
             $ordered{$name} = $toc->{$name};
@@ -639,14 +639,14 @@ sub get_toc ( $id ) {
     return %ordered;
 }
 
-sub get_toc_titles ( $id ) {
+sub get_toc_titles ($id) {
     my $redis = LANraragi::Model::Config->get_redis;
 
     my $toc = $redis->hget( $id, "toc" );
     my @vals;
 
     if ( defined $toc ) {
-        eval { $toc = decode_json( $toc ) };
+        eval { $toc = decode_json($toc) };
 
         @vals = values %$toc;
     } else {
