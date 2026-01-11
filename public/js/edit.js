@@ -1,6 +1,7 @@
 /**
  * JS functions meant for use in the Edit page.
  * Mostly dealing with plugins.
+ * @global
  */
 const Edit = {};
 
@@ -58,8 +59,8 @@ Edit.initializeAll = function () {
 // this checks whether the rich-text tag editor is in use (initialized
 // on tagInput); if so, call its method to add the tag; if not, edit
 // the string directly
-Edit.addTag = function (tag) {
-    tag = tag.trim();
+Edit.addTag = function (tagInput) {
+    let tag = tagInput.trim();
     if (Edit.tagInput) {
         Edit.tagInput.add_tag(tag);
     } else {
@@ -202,7 +203,7 @@ Edit.getTags = function () {
                 });
             }
 
-            if (result.data.summary && result.data.summary !=="") {
+            if (result.data.summary && result.data.summary !== "") {
                 $("#summary").val(result.data.summary);
                 LRR.toast({
                     heading: I18N.EditSummaryUpdated,
