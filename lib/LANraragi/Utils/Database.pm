@@ -139,7 +139,7 @@ sub add_pagecount ( $redis, $id ) {
     my $logger = get_logger( "Archive", "lanraragi" );
 
     my $file   = get_archive_path( $redis, $id );
-    my @images = get_filelist($file, $id);
+    my @images = get_filelist( $file, $id );
     $redis->hset( $id, "pagecount", scalar @images );
 }
 
@@ -511,7 +511,11 @@ sub update_indexes ( $id, $oldtags, $newtags ) {
         }
 
         # Tag is lowercased here to avoid redundancy/dupes
-        $redis->srem( "INDEX_" . LANraragi::Utils::Redis::redis_encode( lc($tag) ), $id );
+        $tag = lc($tag);
+
+        # Update tag index and stats for the tag
+        $redis->srem( "INDEX_" . LANraragi::Utils::Redis::redis_encode($tag), $id );
+        $redis->zincrby( "LRR_STATS", -1, $tag );
     }
 
     foreach my $tag (@newtags) {
@@ -525,7 +529,11 @@ sub update_indexes ( $id, $oldtags, $newtags ) {
             $redis->hset( "LRR_URLMAP", $url, $id );
         }
 
-        $redis->sadd( "INDEX_" . LANraragi::Utils::Redis::redis_encode( lc($tag) ), $id );
+        $tag = lc($tag);
+
+        # Update tag index and stats for the tag
+        $redis->sadd( "INDEX_" . LANraragi::Utils::Redis::redis_encode($tag), $id );
+        $redis->zincrby( "LRR_STATS", 1, $tag );
     }
 
     # Add or remove the ID from the untagged list
