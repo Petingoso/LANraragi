@@ -121,6 +121,8 @@ Reader.initializeAll = function () {
         document.querySelector('#rating').selectedIndex = 0;
         $("#tagContainer > table").replaceWith(LRR.buildTagsDiv(tagList.join(",")));
     });
+
+    $(document).on("click.add-toc", "#add-toc", Reader.addTocSection);
     $(document).on("click.set-thumbnail", "#set-thumbnail", () => Server.callAPI(`/api/archives/${Reader.id}/thumbnail?page=${Reader.currentPage + 1}`,
         "PUT", I18N.ReaderUpdateThumbnail(Reader.currentPage), I18N.ReaderUpdateThumbnailError, null));
 
@@ -218,6 +220,32 @@ Reader.addCategoryBadge = function ( categoryId ) {
 
 Reader.removeCategoryBadge = function ( categoryId ) {
     $(`#archive-categories a.remove-category[data-id="${categoryId}"]`).closest(".gt").remove();
+}
+
+Reader.addTocSection = function () {
+
+    let page = Reader.currentPage + 1;
+    LRR.closeOverlay(); 
+    LRR.showPopUp({
+        title: I18N.ReaderTocPrompt,
+        input: "text",
+        inputPlaceholder: "Chapter X", // TODO
+        inputAttributes: {
+            autocapitalize: "off",
+        },
+        showCancelButton: true,
+        reverseButtons: true,
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Server.callAPI(`/api/archives/${Reader.id}/toc?page=${page}&title=${result.value}`, "PUT", I18N.ReaderTocAdded, I18N.ReaderTocError, null);
+        }
+    });
+
+    // TODO Reload overlay
+}
+
+Reader.removeTocSection = function () {
+
 }
 
 Reader.loadImages = function () {
@@ -1028,7 +1056,7 @@ Reader.initializeArchiveOverlay = function () {
         const thumbCss = (localStorage.cropthumbs === "true") ? "id3" : "id3 nocrop";
         const thumbnailUrl = new LRR.apiURL(`/api/archives/${Reader.id}/thumbnail?page=${page}`);
         const thumbnail = `
-            <div class='${thumbCss} quick-thumbnail context-menu' page='${index}' style='display: inline-block; cursor: pointer'>
+            <div class='${thumbCss} quick-thumbnail' page='${index}' style='display: inline-block; cursor: pointer'>
                 <span class='page-number'>${I18N.ReaderPage(page)}</span>
                 <img src="${thumbnailUrl}" id="${index}_thumb" loading="lazy" />
                 <i id="${index}_spinner" class="fa fa-4x fa-circle-notch fa-spin ttspinner" style="display:flex;justify-content: center; align-items: center;"></i>
@@ -1079,39 +1107,6 @@ Reader.initializeArchiveOverlay = function () {
                 ));
             }
         });
-};
-
-Reader.handleContextMenu = function (option, page) {
-    const queryString = window.location.search;
-    const urlParams = new URLSearchParams(queryString);
-    const id = urlParams.get('id');
-
-    switch (option) {
-    case "setpage":
-        var name = prompt("Enter title of the section:");
-
-        Server.callAPI(`/api/archives/${id}/toc?page=${page}&title=${name}`, "PUT", `Bookmark created!`, "Error creating element:",
-            (data) => {
-            },
-        );
-        break;
-    case "editpage":
-        var name = prompt("Enter title of the section:");
-
-        Server.callAPI(`/api/archives/${id}/toc?page=${page}&title=${name}`, "PUT", `Bookmark created!`, "Error creating element:",
-            (data) => {
-            },
-        );
-        break;
-    case "unsetpage":
-        Server.callAPI(`/api/archives/${id}/rtoc?page=${page}`, "DELETE", `Bookmark removed!`, "Error removing element:",
-            (data) => {
-            },
-        );
-        break;
-    default:
-        break;
-    }
 };
 
 /**
