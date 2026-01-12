@@ -237,7 +237,7 @@ Reader.addTocSection = function () {
         reverseButtons: true,
     }).then((result) => {
         if (result.isConfirmed) {
-            Server.callAPI(`/api/archives/${Reader.id}/toc?page=${page}&title=${result.value}`, "PUT", I18N.ReaderTocAdded, I18N.ReaderTocError, null);
+            Server.callAPI(`/api/archives/${Reader.id}/toc?page=${page}&title=${result.value}`, "PUT", "Chapter added!", I18N.ReaderTocError, null);
         }
     });
 
@@ -246,6 +246,10 @@ Reader.addTocSection = function () {
 
 Reader.removeTocSection = function () {
 
+    let page = Reader.currentPage + 1; 
+    Server.callAPI(`/api/archives/${Reader.id}/toc?page=${page}`, "DELETE", "Chapter removed!", I18N.ReaderTocError, null);
+
+    // TODO Reload overlay
 }
 
 Reader.loadImages = function () {

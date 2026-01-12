@@ -3548,6 +3548,7 @@ components:
         - pagecount
         - lastreadtime
         - size
+        - toc
       properties:
         arcid:
           type: string
@@ -3584,6 +3585,9 @@ components:
         size:
           type: integer
           description: Size of the archive in bytes
+        toc:
+          type: array
+          description: Table of contents for the archive
       example:
         arcid: 28697b96f0ac5858be2614ed10ca47742c9522fd
         isnew: false
@@ -3595,6 +3599,14 @@ components:
         title: Fate GO MEMO
         filename: Fate GO MEMO
         summary: null
+        size: 1234567
+        toc: 
+          - name: Chapter 1
+            page: 1
+          - name: Chapter 2
+            page: 13
+          - name: Chapter 3
+            page: 25
     CategoryMetadataJson:
       type: object
       description: >-
