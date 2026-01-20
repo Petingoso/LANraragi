@@ -105,7 +105,7 @@ Reader.initializeAll = function () {
         }
     });
     $(document).on("click.set-rating", "#set-rating", () => {
-        let tags = LRR.splitTagsByNamespace(Reader.tags);
+        let tags = LRR.splitTagsByNamespace(Reader.content.tags);
         let selectedRating = $("#rating").val();
         if (selectedRating === "") { return };
         tags.rating = [selectedRating];
@@ -114,7 +114,7 @@ Reader.initializeAll = function () {
         $("#tagContainer > table").replaceWith(LRR.buildTagsDiv(tagList.join(",")));
     });
     $(document).on("click.clear-rating", "#clear-rating", () => {
-        let tags = LRR.splitTagsByNamespace(Reader.tags);
+        let tags = LRR.splitTagsByNamespace(Reader.content.tags);
         delete tags.rating;
         let tagList = LRR.buildTagList(tags);
         Server.updateTagsFromArchive(Reader.id, tagList);
@@ -151,38 +151,69 @@ Reader.initializeAll = function () {
     // Remove the "new" tag with an api call
     Server.callAPI(`/api/archives/${Reader.id}/isnew`, "DELETE", null, I18N.ReaderErrorClearingNew, null);
 
-    // Get basic metadata
-    Server.callAPI(`/api/archives/${Reader.id}/metadata`, "GET", null, I18N.ServerInfoError,
+    // Load metadata for the requested ID and populate the page
+    Reader.loadContentData().then(() => {
+      
+        document.title = Reader.content.title;
+        $(".max-page").text(Reader.content.pages);
+
+        // Regex look in tags for artist
+        const artist = Reader.content.tags.match(/artist:([^,]+)(?:,|$)/i);
+        if (artist) {
+            const artistName = artist[1];
+            const artistSearchUrl = `/?sort=0&q=artist%3A${encodeURIComponent(artistName)}%24&`;
+            const link = $('<a></a>')
+                .attr('href', artistSearchUrl)
+                .text(artistName);
+            const titleContainer = $('<span></span>')
+                .text(`${Reader.content.title} by `)
+                .append(link);
+            $("#archive-title").empty().append(titleContainer);
+            $("#archive-title-overlay").empty().append(titleContainer.clone());
+        } else {
+            $("#archive-title").text(Reader.content.title);
+            $("#archive-title-overlay").text(Reader.content.title);
+        }
+
+        $("#tagContainer").append(LRR.buildTagsDiv(Reader.content.tags));
+
+        $("#tagContainer").append("<div class=\"archive-summary\"/>");
+        $(".archive-summary").text(Reader.content.summary);
+
+        // Load the actual reader pages now that we have basic info
+        Reader.loadImages();
+    });
+
+    // Fetch "bookmark" category ID and setup icon
+    Reader.loadBookmarkStatus();
+};
+
+Reader.loadContentData = function () {
+
+    // Initialize content object to hold metadata -- This is a recursive object that will be used to build the page overlay.
+    // (For tanks, content.chapters will hold an array of archive IDs, for archives it'll hold TOC data.)
+    Reader.content = {
+        id: Reader.id,
+        title: "",
+        pages: 0,
+        chapters: [],
+        tags: "",
+        summary: ""
+    };
+
+    // If the ID is a Tank ID (TANK_xxxx), use the Tankoubon API for metadata
+    if (Reader.id.startsWith("TANK_")) {
+
+        // TODO
+    }
+    else return Server.callAPI(`/api/archives/${Reader.id}/metadata`, "GET", null, I18N.ServerInfoError,
         (data) => {
             let { title } = data;
 
-            // Regex look in tags for artist
-            const artist = data.tags.match(/artist:([^,]+)(?:,|$)/i);
-            if (artist) {
-                const artistName = artist[1];
-                const artistSearchUrl = `/?sort=0&q=artist%3A${encodeURIComponent(artistName)}%24&`;
-                const link = $('<a></a>')
-                    .attr('href', artistSearchUrl)
-                    .text(artistName);
-                const titleContainer = $('<span></span>')
-                    .text(`${title} by `)
-                    .append(link);
-                $("#archive-title").empty().append(titleContainer);
-                $("#archive-title-overlay").empty().append(titleContainer.clone());
-            } else {
-                $("#archive-title").text(title);
-                $("#archive-title-overlay").text(title);
-            }
-            if (data.pagecount) { $(".max-page").text(data.pagecount); }
-            document.title = title;
-
-            Reader.tags = data.tags;
-            $("#tagContainer").append(LRR.buildTagsDiv(Reader.tags));
-
-            if (data.summary) {
-                $("#tagContainer").append("<div class=\"archive-summary\"/>");
-                $(".archive-summary").text(data.summary);
-            }
+            Reader.content.title = title;
+            Reader.content.pages = data.pagecount;
+            Reader.content.tags = data.tags;
+            Reader.content.summary = data.summary;
 
             // Use localStorage progress value instead of the server one if needed
             if (Reader.trackProgressLocally && !(Reader.authenticateProgress && LRR.isUserLogged())) {
@@ -191,17 +222,14 @@ Reader.initializeAll = function () {
                 Reader.progress = data.progress - 1;
             }
 
-            // check and display warnings for unsupported filetypes
+            if (data.toc) 
+                Reader.content.chapters = LRR.buildChapterObject(data.toc, data.pagecount);
+
+            // Check and display warnings for unsupported filetypes
             Reader.checkFiletypeSupport(data.extension);
-
-            // Load the actual reader pages now that we have basic info
-            Reader.loadImages();
-        },
+        }
     );
-
-    // Fetch "bookmark" category ID and setup icon
-    Reader.loadBookmarkStatus();
-};
+}
 
 /**
  * Adds a removable category flag to the categories section within archive overview.
@@ -273,7 +301,7 @@ Reader.loadImages = function () {
 
             if (Reader.infiniteScroll) {
                 Reader.initInfiniteScrollView();
-                if (Reader.tags?.includes("webtoon")) {
+                if (Reader.content.tags?.includes("webtoon")) {
                     $("head").append(`
                         <style id="webtoon-css">
                             .reader-image {
@@ -435,7 +463,7 @@ Reader.handleShortcuts = function (e) {
         break;
     case 32: // spacebar
     //Break early and go back to browser default behaviour if overlay is open or gallery has webtoon tag and in infiniteScroll
-    if ($(".page-overlay").is(":visible") || e.repeat || (Reader.infiniteScroll && Reader.tags?.includes("webtoon"))) break;
+    if ($(".page-overlay").is(":visible") || e.repeat || (Reader.infiniteScroll && Reader.content.tags?.includes("webtoon"))) break;
     e.preventDefault();
 
     // Capture direction now so we dont lose it if shift state changes while held
