@@ -8,6 +8,7 @@ Reader.id = "";
 Reader.force = false;
 Reader.previousPage = -1;
 Reader.currentPage = -1;
+Reader.currentChapter = null;
 Reader.showingSinglePage = true;
 Reader.preloadedImg = {};
 Reader.preloadedSizes = {};
@@ -179,6 +180,9 @@ Reader.initializeAll = function () {
 
         $("#tagContainer").append("<div class=\"archive-summary\"/>");
         $(".archive-summary").text(Reader.content.summary);
+
+        // Get the chapter for the current page (if any)
+        Reader.currentChapter = Reader.getCurrentChapter();
 
         // Load the actual reader pages now that we have basic info
         Reader.loadImages();
@@ -817,6 +821,7 @@ Reader.goToPage = function (page) {
         window.scrollTo(0, 0);
     }
 
+    Reader.updateArchiveOverlay();
     Reader.updateProgress();
 };
 
@@ -1017,19 +1022,19 @@ Reader.startAutoNextPage = function() {
         Reader.autoNextPageCountdown--;
         aEls.text(Reader.autoNextPageCountdown);
     }, 1000);
-}
+};
 
 Reader.stopAutoNextPage = function() {
     Reader.autoNextPage = false;
     clearInterval(Reader.autoNextPageCountdownTaskId);
     $(".toggle-auto-next-page").addClass('fa-stopwatch');
     $(".toggle-auto-next-page").text('');
-}
+};
 
 Reader.toggleAutoNextPage = function() {
     Reader.autoNextPage ? Reader.stopAutoNextPage() : Reader.startAutoNextPage();
     return false; // prevent scrolling to top
-}
+};
 
 Reader.toggleOverlayByDefault = function () {
     Reader.overlayByDefault = localStorage.showOverlayByDefault = !Reader.showOverlayByDefault;
@@ -1073,17 +1078,45 @@ Reader.handleFullScreen = function (enableFullscreen = false) {
     }
 };
 
-Reader.initializeArchiveOverlay = function () {
+Reader.getCurrentChapter = function () {
+    let currentChapter = null;
+
+    if (Reader.content.chapters) {
+        Reader.content.chapters.forEach((chapter) => {
+            if (Reader.currentPage + 1 >= chapter.startPage &&
+                Reader.currentPage + 1 <= chapter.endPage) {
+                currentChapter = chapter;
+            }
+        });
+    }
+    return currentChapter;
+};
+
+Reader.updateArchiveOverlay = function () {
+    $("#extract-spinner").hide();
+
+    // Check if the overlay actually needs to be updated
+    // If it's already loaded and we're still in the same chapter (or no chapter), do nothing
     if ($("#archivePagesOverlay").attr("loaded") === "true") {
-        return;
+
+        if ((Reader.currentChapter === null) || 
+            (Reader.currentPage + 1 >= Reader.currentChapter.startPage &&
+             Reader.currentPage + 1 <= Reader.currentChapter.endPage)) {
+            return;
+        }
     }
 
-    $("#extract-spinner").hide();
+    // Otherwise, update chapter and overlay -- If there are no chapters defined, just show all pages
+    Reader.currentChapter = Reader.getCurrentChapter();
+    let firstPage = Reader.currentChapter ? Reader.currentChapter.startPage : 1;
+    let lastPage = Reader.currentChapter ? Reader.currentChapter.endPage : Reader.pages.length;
+
+    $("#overlay-section").html(Reader.currentChapter ? Reader.currentChapter.name : I18N.ReaderPages);
 
     // For each link in the pages array, craft a div and jam it in the overlay.
     let htmlBlob = "";
-    for (let index = 0; index < Reader.pages.length; ++index) {
-        const page = index + 1;
+    for (let index = firstPage; index < lastPage + 1; ++index) {
+        const page = index;
 
         const thumbCss = (localStorage.cropthumbs === "true") ? "id3" : "id3 nocrop";
         const thumbnailUrl = new LRR.apiURL(`/api/archives/${Reader.id}/thumbnail?page=${page}`);
@@ -1096,9 +1129,13 @@ Reader.initializeArchiveOverlay = function () {
 
         htmlBlob += thumbnail;
     }
+
     // NOTE: This can be slow on huge archives and on slower devices, due to the huge DOM change.
-    $("#archivePagesOverlay").append(htmlBlob);
+    $("#pages-section").html(htmlBlob);
     $("#archivePagesOverlay").attr("loaded", "true");
+};
+
+Reader.generateThumbnails = function () {
 
     // Queue a single minion job for thumbnails and check on its progress regularly
     const thumbProgress = function (notes) {
