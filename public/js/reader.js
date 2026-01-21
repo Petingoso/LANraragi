@@ -10,6 +10,7 @@ Reader.previousPage = -1;
 Reader.currentPage = -1;
 Reader.currentChapter = null;
 Reader.showingSinglePage = true;
+Reader.pageThumbnails = [];
 Reader.preloadedImg = {};
 Reader.preloadedSizes = {};
 Reader.spaceScroll = { timeout: null, animationId: null };
@@ -342,6 +343,7 @@ Reader.loadImages = function () {
             $("#img").attr("src", new LRR.apiURL("/img/flubbed.gif").toString());
             $("#display").append("<h2>"+I18N.ReaderArchiveError+"</h2>");
         }
+        Reader.generateThumbnails();
     });
 };
 
@@ -1115,16 +1117,21 @@ Reader.updateArchiveOverlay = function () {
 
     // For each link in the pages array, craft a div and jam it in the overlay.
     let htmlBlob = "";
-    for (let index = firstPage; index < lastPage + 1; ++index) {
-        const page = index;
+    for (let page = firstPage; page < lastPage + 1; ++page) {
+        const index = page - 1;
 
         const thumbCss = (localStorage.cropthumbs === "true") ? "id3" : "id3 nocrop";
         const thumbnailUrl = new LRR.apiURL(`/api/archives/${Reader.id}/thumbnail?page=${page}`);
-        const thumbnail = `
+        
+        let thumbnail = `
             <div class='${thumbCss} quick-thumbnail' page='${index}' style='display: inline-block; cursor: pointer'>
                 <span class='page-number'>${I18N.ReaderPage(page)}</span>
-                <img src="${thumbnailUrl}" id="${index}_thumb" loading="lazy" />
-                <i id="${index}_spinner" class="fa fa-4x fa-circle-notch fa-spin ttspinner" style="display:flex;justify-content: center; align-items: center;"></i>
+                <img src="${thumbnailUrl}" id="${index}_thumb" loading="lazy" />`;
+        
+        if (Reader.pageThumbnails.includes(index)) thumbnail += 
+            `</div>`;
+        else thumbnail += 
+                `<i id="${index}_spinner" class="fa fa-4x fa-circle-notch fa-spin ttspinner" style="display:flex;justify-content: center; align-items: center;"></i>
             </div>`;
 
         htmlBlob += thumbnail;
@@ -1146,7 +1153,9 @@ Reader.generateThumbnails = function () {
 
             if (notes.hasOwnProperty(i) && notes[i] === "processed") {
                 const index = i - 1;
-                // If the spinner is still visible, update the thumbnail
+                Reader.pageThumbnails.push(index);
+
+                // Live-update the page thumbnail in the overlay if it's visible
                 if ($(`#${index}_spinner`).attr("loaded") !== "true") {
                     // Set image source to the thumbnail
                     const thumbnailUrl = new LRR.apiURL(`/api/archives/${Reader.id}/thumbnail?page=${i}&cachebust=${Date.now()}`);
@@ -1162,6 +1171,7 @@ Reader.generateThumbnails = function () {
         .then((response) => {
             if (response.status === 200) {
                 // Thumbnails are already generated, there's nothing to do. Very nice!
+                Reader.pageThumbnails = [...Array(Reader.pages.length).keys()];
                 $(".ttspinner").hide();
                 return;
             }
