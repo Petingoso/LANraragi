@@ -168,7 +168,8 @@
 
         <br><br>
 
-        <h2 id="overlay-section" class="ih" style="text-align:center">[% c.lh("Pages") %]</h2>
+        <h2 id="overlay-section" class="ih">[% c.lh("Pages") %]</h2>
+        <div class="chapter-selector"></div>
 
         <div id="extract-spinner" style="width: 80%; margin-left: auto; margin-right: auto">
             <p class="loading-spinner">

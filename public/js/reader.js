@@ -274,7 +274,8 @@ Reader.addTocSection = function () {
         }
     });
 
-    // TODO Reload overlay
+    // Reload ToC and overlay
+    Reader.loadContentData().then(Reader.updateArchiveOverlay());
 }
 
 Reader.removeTocSection = function () {
@@ -282,7 +283,8 @@ Reader.removeTocSection = function () {
     let page = Reader.currentPage + 1; 
     Server.callAPI(`/api/archives/${Reader.id}/toc?page=${page}`, "DELETE", "Chapter removed!", I18N.ReaderTocError, null);
 
-    // TODO Reload overlay
+    // Reload ToC and overlay
+    Reader.loadContentData().then(Reader.updateArchiveOverlay());
 }
 
 Reader.loadImages = function () {
@@ -1114,6 +1116,20 @@ Reader.updateArchiveOverlay = function () {
     let lastPage = Reader.currentChapter ? Reader.currentChapter.endPage : Reader.pages.length;
 
     $("#overlay-section").html(Reader.currentChapter ? Reader.currentChapter.name : I18N.ReaderPages);
+
+    // Create <select> options for jumping to other chapters
+    let chapterOptions = `<select class="favtag-btn" id="chapter-select">`;
+    if (Reader.content.chapters) {
+        Reader.content.chapters.forEach((chapter, index) => {
+            const selected = (Reader.currentChapter && chapter.startPage === Reader.currentChapter.startPage) ? "selected" : "";
+            chapterOptions += `<option value="${chapter.startPage}" ${selected}>${chapter.name}</option>`;
+        });
+    }
+    chapterOptions += `</select>`;
+    $(".chapter-selector").html(chapterOptions);
+    $("#chapter-select").off("change").on("change", function () {
+        Reader.goToPage($(this).val());
+    });
 
     // For each link in the pages array, craft a div and jam it in the overlay.
     let htmlBlob = "";
