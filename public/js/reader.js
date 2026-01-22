@@ -124,8 +124,16 @@ Reader.initializeAll = function () {
         $("#tagContainer > table").replaceWith(LRR.buildTagsDiv(tagList.join(",")));
     });
 
-    $(document).on("click.add-toc", ".add-toc", Reader.addTocSection);
+    $(document).on("click.add-toc", ".add-toc", (e) => { 
+        const page = +$(e.target).closest("div[page]").attr("page") + 1; 
+        Reader.addTocSection(page);
+
+        // Stop event propagation to avoid going to page
+        e.stopPropagation();
+     });
+    $(document).on("click.edit-toc", ".edit-toc", (e) => Reader.addTocSection(Reader.currentChapter.startPage, Reader.currentChapter.name));
     $(document).on("click.remove-toc", ".remove-toc", Reader.removeTocSection);
+
     $(document).on("click.set-thumbnail", ".set-thumbnail", (e) => {
         const pageNumber = +$(e.target).closest("div[page]").attr("page") + 1;
         Server.callAPI(`/api/archives/${Reader.id}/thumbnail?page=${pageNumber}`,
@@ -239,6 +247,7 @@ Reader.loadContentData = function () {
 
             // Check and display warnings for unsupported filetypes
             Reader.checkFiletypeSupport(data.extension);
+
         }
     );
 }
@@ -262,14 +271,13 @@ Reader.removeCategoryBadge = function ( categoryId ) {
     $(`#archive-categories a.remove-category[data-id="${categoryId}"]`).closest(".gt").remove();
 }
 
-Reader.addTocSection = function (e) {
+Reader.addTocSection = function (page, currentTitle = null) {
 
-    const page = +$(e.target).closest("div[page]").attr("page") + 1;
     LRR.closeOverlay(); 
     LRR.showPopUp({
         title: I18N.ReaderTocPrompt,
         input: "text",
-        inputPlaceholder: "Chapter X", // TODO
+        inputPlaceholder: currentTitle || "Chapter X", 
         inputAttributes: {
             autocapitalize: "off",
         },
@@ -277,15 +285,12 @@ Reader.addTocSection = function (e) {
         reverseButtons: true,
     }).then((result) => {
         Reader.toggleArchiveOverlay();
-        if (result.isConfirmed) {
+        if (result.isConfirmed && result.value.trim() !== "") {
             Server.callAPI(`/api/archives/${Reader.id}/toc?page=${page}&title=${result.value}`, "PUT", "Chapter added!", I18N.ReaderTocError, 
-                () => Reader.loadContentData().then(Reader.updateArchiveOverlay())
+                () => Reader.loadContentData().then(Reader.updateArchiveOverlay(true))
             );
         }
     });
-
-    // Stop event propagation to avoid going to page
-    e.stopPropagation();
 }
 
 Reader.removeTocSection = function () {
@@ -305,7 +310,7 @@ Reader.removeTocSection = function () {
             if (result.isConfirmed) {
                 let page = Reader.currentChapter.startPage; 
                 Server.callAPI(`/api/archives/${Reader.id}/toc?page=${page}`, "DELETE", "Chapter removed!", I18N.ReaderTocError, 
-                    () => Reader.loadContentData().then(Reader.updateArchiveOverlay())
+                    () => Reader.loadContentData().then(Reader.updateArchiveOverlay(true))
                 );
             }
         });
@@ -1120,12 +1125,12 @@ Reader.getCurrentChapter = function () {
     return currentChapter;
 };
 
-Reader.updateArchiveOverlay = function () {
+Reader.updateArchiveOverlay = function (forceUpdate = false) {
     $("#extract-spinner").hide();
 
     // Check if the overlay actually needs to be updated
     // If it's already loaded and we're still in the same chapter (or no chapter), do nothing
-    if ($("#archivePagesOverlay").attr("loaded") === "true") {
+    if ($("#archivePagesOverlay").attr("loaded") === "true" && !forceUpdate) {
 
         if ((Reader.currentChapter === null) || 
             (Reader.currentPage + 1 >= Reader.currentChapter.startPage &&
@@ -1152,7 +1157,8 @@ Reader.updateArchiveOverlay = function () {
     chapterOptions += `</select>`;
 
     if (LRR.isUserLogged()) 
-        chapterOptions += `<a class="fas fa-trash-alt remove-toc" href="#" style="padding:8px; font-size:14px" title="${I18N.ReaderDeleteToc}"/>`;
+        chapterOptions += `<a class="fas fa-pencil-alt edit-toc" href="#" style="padding:8px; font-size:14px" title="${I18N.ReaderEditToc}"/>
+                           <a class="fas fa-trash-alt remove-toc" href="#" style="padding:8px; font-size:14px" title="${I18N.ReaderDeleteToc}"/>`;
 
     $(".chapter-selector").html(chapterOptions);
 

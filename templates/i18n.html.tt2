@@ -132,6 +132,7 @@ I18N.AutoNextPageFailBody = "[% c.lh("Please set the auto next page interval to 
 I18N.ReaderChapters = "[% c.lh("Chapters") %]";
 I18N.ReaderPages = "[% c.lh("Pages") %]";
 I18N.ReaderAddToc = "[% c.lh("Add Chapter at this Page") %]";
+I18N.ReaderEditToc = "[% c.lh("Edit Chapter name") %]";
 I18N.ReaderDeleteToc = "[% c.lh("Delete Chapter") %]";
 I18N.ReaderDeleteTocPrompt = "[% c.lh("Are you sure you want to delete this chapter/section?") %]";
 I18N.ReaderTocPrompt = "[% c.lh("Enter a title for this chapter/section:") %]";
