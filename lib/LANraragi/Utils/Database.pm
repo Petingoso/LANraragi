@@ -247,9 +247,12 @@ sub build_json ( $id, %hash ) {
     if ( defined $toc ) {
         eval { $toc = decode_json($toc) };
 
-        foreach my $page ( sort keys %$toc ) {
+        foreach my $page ( keys %$toc ) {
             push @chapters, { page => $page + 0, name => $toc->{$page} };
         }
+
+        # Sort chapters by page number
+        @chapters = sort { $a->{page} <=> $b->{page} } @chapters;
     }
 
     # Workaround if title was incorrectly parsed as blank
