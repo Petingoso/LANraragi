@@ -110,11 +110,6 @@
 
                     <h2>[% c.lh("Admin Options") %]</h2>
 
-                    <input class="stdbtn" type='button' id="set-thumbnail" value="[% c.lh('Set this Page as Thumbnail') %]"
-                        style="width:160px" title="[% c.lh('Set the currently opened page as the thumbnail for this archive.') %]" />
-                    <input class='stdbtn' type='button' id="add-toc" value="[% c.lh("Add Chapter at this Page") %]"
-                        style="width:160px" />
-                    <br>
                     <input id="edit-archive" class='stdbtn' type='button' value="[% c.lh("Edit Archive Metadata") %]"
                         style="width:160px" />
                     <input id="delete-archive" class='stdbtn' type='button' value="[% c.lh("Delete Archive") %]"

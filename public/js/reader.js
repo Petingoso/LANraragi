@@ -124,9 +124,16 @@ Reader.initializeAll = function () {
         $("#tagContainer > table").replaceWith(LRR.buildTagsDiv(tagList.join(",")));
     });
 
-    $(document).on("click.add-toc", "#add-toc", Reader.addTocSection);
-    $(document).on("click.set-thumbnail", "#set-thumbnail", () => Server.callAPI(`/api/archives/${Reader.id}/thumbnail?page=${Reader.currentPage + 1}`,
-        "PUT", I18N.ReaderUpdateThumbnail(Reader.currentPage), I18N.ReaderUpdateThumbnailError, null));
+    $(document).on("click.add-toc", ".add-toc", Reader.addTocSection);
+    $(document).on("click.remove-toc", ".remove-toc", Reader.removeTocSection);
+    $(document).on("click.set-thumbnail", ".set-thumbnail", (e) => {
+        const pageNumber = +$(e.target).closest("div[page]").attr("page") + 1;
+        Server.callAPI(`/api/archives/${Reader.id}/thumbnail?page=${pageNumber}`,
+            "PUT", I18N.ReaderUpdateThumbnail(pageNumber), I18N.ReaderUpdateThumbnailError, null);
+
+        // Stop event propagation to avoid going to page
+        e.stopPropagation();
+    });
 
     $(document).on("click.thumbnail", ".quick-thumbnail", (e) => {
         LRR.closeOverlay();
@@ -255,9 +262,9 @@ Reader.removeCategoryBadge = function ( categoryId ) {
     $(`#archive-categories a.remove-category[data-id="${categoryId}"]`).closest(".gt").remove();
 }
 
-Reader.addTocSection = function () {
+Reader.addTocSection = function (e) {
 
-    let page = Reader.currentPage + 1;
+    const page = +$(e.target).closest("div[page]").attr("page") + 1;
     LRR.closeOverlay(); 
     LRR.showPopUp({
         title: I18N.ReaderTocPrompt,
@@ -269,22 +276,39 @@ Reader.addTocSection = function () {
         showCancelButton: true,
         reverseButtons: true,
     }).then((result) => {
+        Reader.toggleArchiveOverlay();
         if (result.isConfirmed) {
-            Server.callAPI(`/api/archives/${Reader.id}/toc?page=${page}&title=${result.value}`, "PUT", "Chapter added!", I18N.ReaderTocError, null);
+            Server.callAPI(`/api/archives/${Reader.id}/toc?page=${page}&title=${result.value}`, "PUT", "Chapter added!", I18N.ReaderTocError, 
+                () => Reader.loadContentData().then(Reader.updateArchiveOverlay())
+            );
         }
     });
 
-    // Reload ToC and overlay
-    Reader.loadContentData().then(Reader.updateArchiveOverlay());
+    // Stop event propagation to avoid going to page
+    e.stopPropagation();
 }
 
 Reader.removeTocSection = function () {
 
-    let page = Reader.currentPage + 1; 
-    Server.callAPI(`/api/archives/${Reader.id}/toc?page=${page}`, "DELETE", "Chapter removed!", I18N.ReaderTocError, null);
+    LRR.closeOverlay(); 
 
-    // Reload ToC and overlay
-    Reader.loadContentData().then(Reader.updateArchiveOverlay());
+    LRR.showPopUp({
+            text: I18N.ReaderDeleteTocPrompt,
+            icon: "warning",
+            showCancelButton: true,
+            focusConfirm: false,
+            confirmButtonText: I18N.ConfirmYes,
+            reverseButtons: true,
+            confirmButtonColor: "#d33",
+        }).then((result) => {
+            Reader.toggleArchiveOverlay();
+            if (result.isConfirmed) {
+                let page = Reader.currentChapter.startPage; 
+                Server.callAPI(`/api/archives/${Reader.id}/toc?page=${page}`, "DELETE", "Chapter removed!", I18N.ReaderTocError, 
+                    () => Reader.loadContentData().then(Reader.updateArchiveOverlay())
+                );
+            }
+        });
 }
 
 Reader.loadImages = function () {
@@ -1126,7 +1150,12 @@ Reader.updateArchiveOverlay = function () {
         });
     }
     chapterOptions += `</select>`;
+
+    if (LRR.isUserLogged()) 
+        chapterOptions += `<a class="fas fa-trash-alt remove-toc" href="#" style="padding:8px; font-size:14px" title="${I18N.ReaderDeleteToc}"/>`;
+
     $(".chapter-selector").html(chapterOptions);
+
     $("#chapter-select").off("change").on("change", function () {
         Reader.goToPage($(this).val());
     });
@@ -1144,6 +1173,14 @@ Reader.updateArchiveOverlay = function () {
                 <span class='page-number'>${I18N.ReaderPage(page)}</span>
                 <img src="${thumbnailUrl}" id="${index}_thumb" loading="lazy" />`;
         
+        if (LRR.isUserLogged()) 
+            thumbnail += `<a href="#" style="padding:12px; top:2%; left:72%;" 
+                             title="${I18N.ReaderSetPageAsThumbnail}" 
+                             class="fas fa-file-image page-number set-thumbnail"></a>
+                          <a href="#" style="padding:12px; top:80%; left:72%;" 
+                             title="${I18N.ReaderAddToc}" 
+                             class="fas fa-book-medical page-number add-toc"></a>`;
+
         if (Reader.pageThumbnails.includes(index)) thumbnail += 
             `</div>`;
         else thumbnail += 
