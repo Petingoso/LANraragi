@@ -287,7 +287,7 @@ Reader.addTocSection = function (page, currentTitle = null) {
         Reader.toggleArchiveOverlay();
         if (result.isConfirmed && result.value.trim() !== "") {
             Server.callAPI(`/api/archives/${Reader.id}/toc?page=${page}&title=${result.value}`, "PUT", "Chapter added!", I18N.ReaderTocError, 
-                () => Reader.loadContentData().then(Reader.updateArchiveOverlay(true))
+                () => Reader.loadContentData().then(() => Reader.updateArchiveOverlay(true))
             );
         }
     });
@@ -296,24 +296,23 @@ Reader.addTocSection = function (page, currentTitle = null) {
 Reader.removeTocSection = function () {
 
     LRR.closeOverlay(); 
-
     LRR.showPopUp({
-            text: I18N.ReaderDeleteTocPrompt,
-            icon: "warning",
-            showCancelButton: true,
-            focusConfirm: false,
-            confirmButtonText: I18N.ConfirmYes,
-            reverseButtons: true,
-            confirmButtonColor: "#d33",
-        }).then((result) => {
-            Reader.toggleArchiveOverlay();
-            if (result.isConfirmed) {
-                let page = Reader.currentChapter.startPage; 
-                Server.callAPI(`/api/archives/${Reader.id}/toc?page=${page}`, "DELETE", "Chapter removed!", I18N.ReaderTocError, 
-                    () => Reader.loadContentData().then(Reader.updateArchiveOverlay(true))
-                );
-            }
-        });
+        text: I18N.ReaderDeleteTocPrompt,
+        icon: "warning",
+        showCancelButton: true,
+        focusConfirm: false,
+        confirmButtonText: I18N.ConfirmYes,
+        reverseButtons: true,
+        confirmButtonColor: "#d33",
+    }).then((result) => {
+        Reader.toggleArchiveOverlay();
+        if (result.isConfirmed) {
+            let page = Reader.currentChapter.startPage; 
+            Server.callAPI(`/api/archives/${Reader.id}/toc?page=${page}`, "DELETE", "Chapter removed!", I18N.ReaderTocError, 
+                () => Reader.loadContentData().then(() => Reader.updateArchiveOverlay(true))
+            );
+        }
+    });
 }
 
 Reader.loadImages = function () {
