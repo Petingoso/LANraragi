@@ -180,8 +180,8 @@ Reader.initializeAll = function () {
         if (artist) {
             const artistName = artist[1];
             const artistSearchUrl = `/?sort=0&q=artist%3A${encodeURIComponent(artistName)}%24&`;
-            const link = $('<a></a>')
-                .attr('href', artistSearchUrl)
+            const link = $("<a></a>")
+                .attr("href", artistSearchUrl)
                 .text(artistName);
             const titleContainer = $("<span></span>")
                 .text(`${Reader.content.title} by `)
@@ -278,7 +278,7 @@ Reader.addTocSection = function (page, currentTitle = null) {
     LRR.showPopUp({
         title: I18N.ReaderTocPrompt,
         input: "text",
-        inputPlaceholder: currentTitle || "Chapter X", 
+        inputPlaceholder: currentTitle || I18N.UntitledChapter, 
         inputAttributes: {
             autocapitalize: "off",
         },
@@ -494,7 +494,7 @@ Reader.handleShortcuts = function (e) {
     if (e.target.tagName === "INPUT") {
         return;
     }
-    switch (e.keyCode) {
+    switch (e.which) {
     case 8: // backspace
         document.location.href = $("#return-to-index").attr("href");
         break;
@@ -502,9 +502,52 @@ Reader.handleShortcuts = function (e) {
         LRR.closeOverlay();
         break;
     case 32: // spacebar
-    //Break early and go back to browser default behaviour if overlay is open or gallery has webtoon tag and in infiniteScroll
-    if ($(".page-overlay").is(":visible") || e.repeat || (Reader.infiniteScroll && Reader.content.tags?.includes("webtoon"))) break;
-    e.preventDefault();
+            Reader.spaceScrollProcessInput(e);
+            break;
+        case 37: // left arrow
+            Reader.changePage(-1, true);
+            break;
+        case 39: // right arrow
+            Reader.changePage(1, true);
+            break;
+        case 65: // a
+            Reader.changePage(-1, true);
+            break;
+        case 66: // b
+            Reader.toggleBookmark(e);
+            break;
+        case 68: // d
+            Reader.changePage(1, true);
+            break;
+        case 70: // f
+            Reader.toggleFullScreen();
+            break;
+        case 72: // h
+            Reader.toggleHelp();
+            break;
+        case 77: // m
+            Reader.toggleMangaMode();
+            break;
+        case 78: // n
+            Reader.toggleAutoNextPage();
+            break;
+        case 79: // o
+            Reader.toggleSettingsOverlay();
+            break;
+        case 80: // p
+            Reader.toggleDoublePageMode();
+            break;
+        case 81: // q
+            Reader.toggleArchiveOverlay();
+            break;
+        case 82: // r
+            if (e.ctrlKey || e.shiftKey || e.metaKey) { break; }
+            document.location.href = new LRR.apiURL("/random");
+            break;
+        default:
+            break;
+    }
+};
 
 /**
  * @param {JQuery.KeyDownEvent | JQuery.KeyUpEvent} e
