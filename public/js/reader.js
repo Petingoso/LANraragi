@@ -1146,25 +1146,27 @@ Reader.updateArchiveOverlay = function (forceUpdate = false) {
 
     $("#overlay-section").html(Reader.currentChapter ? Reader.currentChapter.name : I18N.ReaderPages);
 
-    // Create <select> options for jumping to other chapters
-    let chapterOptions = `<select class="favtag-btn" id="chapter-select">`;
-    if (Reader.content.chapters) {
-        Reader.content.chapters.forEach((chapter, index) => {
-            const selected = (Reader.currentChapter && chapter.startPage === Reader.currentChapter.startPage) ? "selected" : "";
-            chapterOptions += `<option value="${chapter.startPage}" ${selected}>${chapter.name}</option>`;
+    if (Reader.currentChapter !== null) {
+        // Create <select> options for jumping to other chapters
+        let chapterOptions = `<select class="favtag-btn" id="chapter-select">`;
+        if (Reader.content.chapters) {
+            Reader.content.chapters.forEach((chapter, index) => {
+                const selected = (Reader.currentChapter && chapter.startPage === Reader.currentChapter.startPage) ? "selected" : "";
+                chapterOptions += `<option value="${chapter.startPage}" ${selected}>${chapter.name}</option>`;
+            });
+        }
+        chapterOptions += `</select>`;
+
+        if (LRR.isUserLogged() ) 
+            chapterOptions += `<a class="fas fa-pencil-alt edit-toc" href="#" style="padding:8px; font-size:14px" title="${I18N.ReaderEditToc}"/>
+                            <a class="fas fa-trash-alt remove-toc" href="#" style="padding:8px; font-size:14px" title="${I18N.ReaderDeleteToc}"/>`;
+
+        $(".chapter-selector").html(chapterOptions);
+
+        $("#chapter-select").off("change").on("change", function () {
+            Reader.goToPage($(this).val());
         });
     }
-    chapterOptions += `</select>`;
-
-    if (LRR.isUserLogged()) 
-        chapterOptions += `<a class="fas fa-pencil-alt edit-toc" href="#" style="padding:8px; font-size:14px" title="${I18N.ReaderEditToc}"/>
-                           <a class="fas fa-trash-alt remove-toc" href="#" style="padding:8px; font-size:14px" title="${I18N.ReaderDeleteToc}"/>`;
-
-    $(".chapter-selector").html(chapterOptions);
-
-    $("#chapter-select").off("change").on("change", function () {
-        Reader.goToPage($(this).val());
-    });
 
     // For each link in the pages array, craft a div and jam it in the overlay.
     let htmlBlob = "";
